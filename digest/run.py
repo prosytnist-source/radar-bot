@@ -132,7 +132,7 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
             try:
                 return llm.generate_json(system, prompt, model, key), model
             except llm.LLMError as exc:
-                if "HTTP 503" in str(exc) and (not args.fallback_model or model == args.fallback_model) and waits < 3:
+                if ("HTTP 503" in str(exc) or "Timeout" in str(exc)) and (not args.fallback_model or model == args.fallback_model) and waits < 3:
                     waits += 1
                     print(f"  … {model} перевантажена, чекаю {20 * waits} с", file=sys.stderr)
                     time.sleep(20 * waits)

@@ -376,3 +376,25 @@ class SameStory(unittest.TestCase):
         c = parsed(dict(GOOD, headline={"uk": "Каліфорнія готується до штормів", "en": "c"}, importance=6, region="USA"))
         got = synth.select([(r, a), (r, b), (r, c)], 5)
         self.assertEqual(len(got), 2)
+
+
+class Timeouts(unittest.TestCase):
+    def test_timeout_becomes_llmerror_and_busy(self):
+        with mock.patch.object(llm, "_call", side_effect=TimeoutError("The read operation timed out")), mock.patch.object(llm.time, "sleep"):
+            with self.assertRaises(llm.LLMError) as cm:
+                llm.generate_json("s", "p", "m", "k", retries=2)
+        self.assertTrue(llm.is_busy(cm.exception))
+
+    def test_timeout_switches_to_fallback(self):
+        calls = []
+
+        def fake(system, prompt, model, key, retries=3):
+            calls.append(model)
+            if model == "main-m":
+                raise llm.LLMError("Timeout: The read operation timed out")
+            return json.dumps(GOOD)
+
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(llm, "load_key", return_value="k"), \
+             mock.patch.object(llm, "generate_json", side_effect=fake), mock.patch.object(run, "ROOT", pathlib.Path(d)):
+            run.main(["--fixtures", str(FX), "--now", "2026-11-11T12:00", "--window", "week", "--synth", "--model", "main-m", "--fallback-model", "backup-m", "--sources", Pipeline.SRCFILE])
+            self.assertIn("backup-m", calls)

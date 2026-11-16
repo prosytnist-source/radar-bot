@@ -21,7 +21,7 @@ class LLMError(RuntimeError):
 def is_busy(exc: BaseException) -> bool:
     """Ліміт (429) або перевантаження моделі (503): варто спробувати іншу модель."""
     t = str(exc)
-    return "HTTP 429" in t or "HTTP 503" in t
+    return "HTTP 429" in t or "HTTP 503" in t or "Timeout" in t
 
 
 def load_key() -> str:
@@ -35,7 +35,7 @@ def load_key() -> str:
     return key
 
 
-def _call(url: str, key: str, payload: dict | None, timeout: int = 90) -> dict:
+def _call(url: str, key: str, payload: dict | None, timeout: int = 120) -> dict:
     data = json.dumps(payload).encode("utf-8") if payload is not None else None
     req = Request(url, data=data, method="POST" if data else "GET", headers={"x-goog-api-key": key, "Content-Type": "application/json"})
     with urlopen(req, timeout=timeout) as resp:  # noqa: S310
@@ -67,8 +67,8 @@ def generate_json(system: str, prompt: str, model: str, key: str, retries: int =
                 time.sleep(5 * (attempt + 1))
                 continue
             raise LLMError(last) from e
-        except (URLError, KeyError, IndexError, json.JSONDecodeError) as e:
-            last = f"{type(e).__name__}: {e}"
+        except (URLError, OSError, KeyError, IndexError, json.JSONDecodeError) as e:  # OSError охоплює TimeoutError і обриви з'єднання
+            last = f"{'Timeout' if isinstance(e, TimeoutError) or 'timed out' in str(e) else type(e).__name__}: {e}"
             if attempt < retries - 1:
                 time.sleep(3)
                 continue
