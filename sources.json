@@ -1,0 +1,155 @@
+{
+  "timezone": "Europe/Kyiv",
+  "_note": "Адреси стрічок не перевірені з сервера розробки: перший запуск покаже, які не відповідають (рядки ✗). Reuters і AP не мають офіційних безкоштовних RSS, тому поки не включені.",
+  "sources": [
+    {
+      "id": "bbc",
+      "name": "BBC News",
+      "feed": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "country": "UK",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "guardian",
+      "name": "The Guardian",
+      "feed": "https://www.theguardian.com/world/rss",
+      "country": "UK",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "aljazeera",
+      "name": "Al Jazeera",
+      "feed": "https://www.aljazeera.com/xml/rss/all.xml",
+      "country": "Qatar",
+      "type": "state",
+      "enabled": true,
+      "caution": "фінансується урядом Катару"
+    },
+    {
+      "id": "dw",
+      "name": "Deutsche Welle",
+      "feed": "https://rss.dw.com/rdf/rss-en-world",
+      "country": "Germany",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "france24",
+      "name": "France 24",
+      "feed": "https://www.france24.com/en/rss",
+      "country": "France",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "euronews",
+      "name": "Euronews",
+      "feed": "https://www.euronews.com/rss",
+      "country": "EU",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "npr",
+      "name": "NPR",
+      "feed": "https://feeds.npr.org/1004/rss.xml",
+      "country": "USA",
+      "type": "nonprofit",
+      "enabled": true
+    },
+    {
+      "id": "nyt",
+      "name": "The New York Times",
+      "feed": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "fox",
+      "name": "Fox News",
+      "feed": "https://moxie.foxnews.com/google-publisher/world.xml",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "scmp",
+      "name": "South China Morning Post",
+      "feed": "https://www.scmp.com/rss/91/feed",
+      "country": "Hong Kong / China",
+      "type": "commercial",
+      "enabled": true,
+      "caution": "власник пов'язаний із Alibaba"
+    },
+    {
+      "id": "toi",
+      "name": "Times of India",
+      "feed": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms",
+      "country": "India",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "japantimes",
+      "name": "The Japan Times",
+      "feed": "https://www.japantimes.co.jp/feed/",
+      "country": "Japan",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "anadolu",
+      "name": "Anadolu Agency",
+      "feed": "https://www.aa.com.tr/en/rss/default?cat=world",
+      "country": "Turkey",
+      "type": "state",
+      "enabled": true,
+      "caution": "державне агентство Туреччини"
+    },
+    {
+      "id": "kyivindependent",
+      "name": "Kyiv Independent",
+      "feed": "https://kyivindependent.com/news-archive/rss/",
+      "country": "Ukraine",
+      "type": "nonprofit",
+      "enabled": true
+    },
+    {
+      "id": "pravda_ua",
+      "name": "Ukrainska Pravda (EN)",
+      "feed": "https://www.pravda.com.ua/eng/rss/",
+      "country": "Ukraine",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "meduza",
+      "name": "Meduza (EN)",
+      "feed": "https://meduza.io/rss/en/all",
+      "country": "Latvia / Russia",
+      "type": "independent_exile",
+      "enabled": true,
+      "caution": "незалежне, у екзилі; джерела фінансування потребують перевірки"
+    },
+    {
+      "id": "moscowtimes",
+      "name": "The Moscow Times",
+      "feed": "https://www.themoscowtimes.com/rss/news",
+      "country": "Netherlands / Russia",
+      "type": "independent_exile",
+      "enabled": true,
+      "caution": "незалежне, у екзилі; джерела фінансування потребують перевірки"
+    },
+    {
+      "id": "kyivpost",
+      "name": "Kyiv Post",
+      "feed": "https://www.kyivpost.com/feed",
+      "country": "Ukraine",
+      "type": "commercial",
+      "enabled": true
+    }
+  ]
+}

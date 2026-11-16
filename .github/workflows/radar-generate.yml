@@ -1,0 +1,56 @@
+name: radar-generate
+# Генерація постів у чергу за розкладом (час UTC; Київ = UTC+2 взимку, UTC+3 влітку — навесні зсунути на годину).
+on:
+  schedule:
+    - cron: "30 8 * * *"   # 10:30 Київ — ранок
+    - cron: "0 12 * * *"   # 14:00 — обід
+    - cron: "0 17 * * *"   # 19:00 — вечір
+    - cron: "30 20 * * *"  # 22:30 — підсумок дня
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "morning | noon | evening | digest"
+        default: "morning"
+concurrency:
+  group: radar-state
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Обрати режим
+        id: slot
+        run: |
+          case "${{ github.event.schedule }}" in
+            "30 8 * * *") S=morning ;;
+            "0 12 * * *") S=noon ;;
+            "0 17 * * *") S=evening ;;
+            "30 20 * * *") S=digest ;;
+            *) S="${{ github.event.inputs.slot }}" ;;
+          esac
+          echo "slot=$S" >> "$GITHUB_OUTPUT"
+      - name: Генерація
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+        run: |
+          if [ "${{ steps.slot.outputs.slot }}" = "digest" ]; then
+            python -m digest.run --slot digest --synth --publish
+          else
+            python -m digest.run --slot "${{ steps.slot.outputs.slot }}" --synth --enqueue
+          fi
+      - name: Зберегти стан
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || (git commit -m "state: ${{ steps.slot.outputs.slot }}" && git pull --rebase && git push)

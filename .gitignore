@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+tests/out.md
+draft.md
+.env
+cache/
+drafts/
