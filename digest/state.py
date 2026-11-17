@@ -104,6 +104,11 @@ class State:
         start = now - timedelta(hours=DUP_WINDOW_H)
         return any(similar_headlines(headline, e.get("headline", "")) for e in self.published if datetime.fromisoformat(e["t"]) >= start)
 
+    def forget(self, headline: str) -> None:
+        """Прибрати запис про опубліковане/заплановане з цим заголовком (щоб дозволити оновлену версію)."""
+        self.published = [e for e in self.published if e.get("headline") != headline]
+        self.pub_file.write_text(json.dumps(self.published, ensure_ascii=False), encoding="utf-8")
+
     def add(self, r, now: datetime, headline: str = "") -> None:
         self.published.append({"t": now.isoformat(), "links": sorted({i.link for i in r.cluster.items}), "tokens": sorted(_tok(r)), "headline": headline})
         cut = now - timedelta(days=KEEP_DAYS)

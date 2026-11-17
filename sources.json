@@ -8,7 +8,8 @@
       "feed": "https://feeds.bbci.co.uk/news/world/rss.xml",
       "country": "UK",
       "type": "public",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "guardian",
@@ -33,7 +34,8 @@
       "feed": "https://rss.dw.com/rdf/rss-en-world",
       "country": "Germany",
       "type": "public",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "france24",
@@ -41,7 +43,8 @@
       "feed": "https://www.france24.com/en/rss",
       "country": "France",
       "type": "public",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "euronews",
@@ -49,7 +52,8 @@
       "feed": "https://www.euronews.com/rss",
       "country": "EU",
       "type": "commercial",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "npr",
@@ -57,7 +61,8 @@
       "feed": "https://feeds.npr.org/1004/rss.xml",
       "country": "USA",
       "type": "nonprofit",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "nyt",
@@ -115,7 +120,8 @@
       "feed": "https://kyivindependent.com/news-archive/rss/",
       "country": "Ukraine",
       "type": "nonprofit",
-      "enabled": true
+      "enabled": true,
+      "image_ok": true
     },
     {
       "id": "pravda_ua",

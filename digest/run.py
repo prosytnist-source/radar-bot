@@ -20,6 +20,8 @@ SLOTS = {
     "morning": {"window": "day", "premium": 2, "top": 10, "candidates": 16, "batch": 5},
     "noon": {"window": "hour", "premium": 1, "top": 5, "candidates": 9, "batch": 5},
     "evening": {"window": "hour", "premium": 2, "top": 8, "candidates": 13, "batch": 5},
+    "dawn": {"window": "day", "premium": 1, "top": 6, "candidates": 12, "batch": 5},  # перед відкриттям ранку (07:00), щоб не публікувати вчорашнє
+    "refresh": {"window": "hour", "premium": 0, "top": 4, "candidates": 8, "batch": 4},  # позачергове оновлення за сигналом із телеграм-каналів: лише слабка модель, дорогу не чіпає
     "digest": {"window": "day", "premium": 1, "top": 6, "candidates": 8},
 }
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -248,10 +250,10 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
 
 
 def pick_preview(r, by_id) -> str | None:
-    """Стаття, чия ілюстрація піде над постом: свіжа, з картинкою в RSS, не з джерела з обережністю/держфінансуванням."""
+    """Стаття, чия ілюстрація піде над постом: свіжа, з картинкою в RSS і лише з джерела, позначеного image_ok у sources.json."""
     for it in sorted(r.cluster.items, key=lambda i: i.published, reverse=True):
         src = by_id.get(it.source_id, {})
-        if it.image and not src.get("caution") and src.get("type") not in ("state", "independent_exile"):
+        if it.image and src.get("image_ok") and not src.get("caution") and src.get("type") not in ("state", "independent_exile"):
             return it.link
     return None
 

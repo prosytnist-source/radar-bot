@@ -37,6 +37,11 @@ def choose(q: list[dict], now: datetime, last: datetime | None, tz: str = "Europ
     return sorted(q, key=lambda e: (-e["importance"], e["created"]))[0]
 
 
+def _limit(e: dict, a) -> float:
+    """Гарячі новини (важливість ≥ 9) швидко втрачають цінність: живуть у черзі менше, ніж решта."""
+    return getattr(a, "max_age_urgent", 4.0) if e["importance"] >= URGENT else a.max_age
+
+
 def step(a, st: State, now: datetime) -> dict | None:
     """Один цикл подачі: команди керування, вибір допису, надсилання. Повертає надісланий допис (або None)."""
     try:
@@ -49,7 +54,7 @@ def step(a, st: State, now: datetime) -> dict | None:
         print("⏸ Пауза (/stop): нічого не публікую.")
         return None
     full = st.load_queue()
-    q = [e for e in full if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=a.max_age)]
+    q = [e for e in full if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=_limit(e, a))]
     if not a.dry:
         for e in full:
             if e not in q:
@@ -121,6 +126,9 @@ def loop(a, poll: float = 60.0) -> int:
             e = step(a, st, now)
             if e:
                 pending.append((e, now))
+            if getattr(a, "watch", False):
+                from . import watch
+                print("[ранній сигнал]", watch.tick(st, datetime.now(timezone.utc), watch.load_cfg()))
             if a.git:
                 if push_state():
                     pending.clear()
@@ -137,6 +145,8 @@ def loop(a, poll: float = 60.0) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
+    ap.add_argument("--max-age-urgent", type=float, default=4.0, help="скільки годин у черзі живе гаряча новина (важливість ≥ 9)")
+    ap.add_argument("--watch", action="store_true", help="у безперервному режимі стежити за телеграм-каналами з watch.json (ранній сигнал)")
     ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
     ap.add_argument("--dry", action="store_true", help="лише показати, що було б надіслано")
     ap.add_argument("--loop", type=float, default=0, help="працювати безперервно стільки хвилин (для Actions); 0 — один крок")

@@ -2,6 +2,7 @@ name: radar-generate
 # Генерація постів у чергу за розкладом (час UTC; Київ = UTC+2 взимку, UTC+3 влітку — навесні зсунути на годину).
 on:
   schedule:
+    - cron: "50 4 * * *"   # 06:50 Київ — свіжа порція перед відкриттям ранку (07:00)
     - cron: "30 8 * * *"   # 10:30 Київ — ранок
     - cron: "0 12 * * *"   # 14:00 — обід
     - cron: "0 17 * * *"   # 19:00 — вечір
@@ -9,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       slot:
-        description: "morning | noon | evening | digest"
+        description: "dawn | morning | noon | evening | digest"
         default: "morning"
 concurrency:
   group: radar-state
@@ -29,6 +30,7 @@ jobs:
         id: slot
         run: |
           case "${{ github.event.schedule }}" in
+            "50 4 * * *") S=dawn ;;
             "30 8 * * *") S=morning ;;
             "0 12 * * *") S=noon ;;
             "0 17 * * *") S=evening ;;

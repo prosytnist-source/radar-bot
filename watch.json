@@ -1,0 +1,8 @@
+{
+  "_note": "Телеграм-канали як ранній сигнал. Додати канал: вписати його ім'я (без @) у список. Канал має мати публічний веб-перегляд t.me/s/<ім'я>.",
+  "channels": ["lachentyt", "nexta_live"],
+  "fresh_minutes": 90,
+  "stale_hours": 2,
+  "poll_minutes": 10,
+  "refresh_gap_minutes": 120
+}
