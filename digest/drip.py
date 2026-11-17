@@ -37,7 +37,7 @@ def choose(q: list[dict], now: datetime, last: datetime | None, tz: str = "Europ
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--max-age", type=float, default=8.0, help="скільки годин пост може чекати в черзі")
+    ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
     ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
     ap.add_argument("--dry", action="store_true", help="лише показати, що було б надіслано")
     a = ap.parse_args(argv)

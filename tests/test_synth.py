@@ -355,7 +355,7 @@ class Drip(unittest.TestCase):
              mock.patch.object(drip.publish, "send") as send:
             from datetime import timedelta
             st = State(pathlib.Path(d, "state"))
-            st.save_queue([self.mk(7, now), self.mk(7, now), self.mk(5, now - timedelta(hours=12))])
+            st.save_queue([self.mk(7, now), self.mk(7, now), self.mk(5, now - timedelta(hours=14))])
             drip.main(["--now", "2026-11-17T10:00"])
             self.assertEqual(send.call_count, 1)
             self.assertEqual(len(State(pathlib.Path(d, "state")).load_queue()), 1)  # одну надіслано, прострочену відкинуто
