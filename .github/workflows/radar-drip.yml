@@ -21,8 +21,9 @@ jobs:
           python-version: "3.12"
       - name: Подача (безперервно)
         env:
+          PYTHONUNBUFFERED: "1"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
-        run: python -m digest.drip --loop 55 --git --watch
+        run: python -m digest.drip --loop 55 --git --watch --fixed

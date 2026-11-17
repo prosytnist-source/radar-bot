@@ -85,8 +85,8 @@ class Run(unittest.TestCase):
         self.d.cleanup()
 
     def test_due_window(self):
-        self.assertTrue(fixed.due("silence", datetime(2026, 11, 17, 7, 5, tzinfo=timezone.utc))[0])      # 09:05 Київ
-        self.assertFalse(fixed.due("silence", datetime(2026, 11, 17, 7, 20, tzinfo=timezone.utc))[0])    # 09:20 — запізно
+        self.assertTrue(fixed.due("silence", datetime(2026, 11, 17, 7, 0, 30, tzinfo=timezone.utc))[0])  # 09:00:30 Київ
+        self.assertFalse(fixed.due("silence", datetime(2026, 11, 17, 7, 2, tzinfo=timezone.utc))[0])     # 09:02 — вже запізно, не публікуємо
         self.assertFalse(fixed.due("holiday", datetime(2026, 11, 17, 2, 0, tzinfo=timezone.utc))[0])     # 04:00 — зарано
 
     def test_posts_once_per_day_and_respects_pause(self):

@@ -111,9 +111,33 @@ def push_state() -> bool:
     return git("push", "-q").returncode == 0
 
 
+def silence_delay(now_kyiv: datetime) -> float:
+    """Секунд до найближчої 09:00:00 за Києвом (від'ємне — вже минула сьогодні)."""
+    return (now_kyiv.replace(hour=9, minute=0, second=0, microsecond=0) - now_kyiv).total_seconds()
+
+
+def fixed_tick(a, poll: float, end: float, last_try: dict) -> None:
+    """Щоденні пости зсередини безперервного запуску (cron GitHub ненадійний, а цей запуск працює майже без перерв).
+    «Хвилина мовчання»: чекаємо до 09:00:00 і публікуємо; запізнення понад хвилину — пропуск (fixed.LATE)."""
+    from . import fixed
+    tz = ZoneInfo("Europe/Kyiv")
+    d = silence_delay(datetime.now(tz))
+    if -50 <= d <= poll + 30 and time.time() + max(d, 0) < end:
+        if d > 0:
+            time.sleep(d)
+        fixed.main(["--kind", "silence"])
+        push_state()
+    now = time.time()
+    for kind in ("holiday", "rates", "fuel"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
+        if now - last_try.get(kind, 0) >= 600:
+            last_try[kind] = now
+            fixed.main(["--kind", kind])
+
+
 def loop(a, poll: float = 60.0) -> int:
     """Працює a.loop хвилин: кожну хвилину бере свіжий стан із репозиторію, виконує крок і одразу публікує стан назад."""
     end = time.time() + a.loop * 60
+    last_try: dict = {}
     pending: list[tuple[dict, datetime]] = []  # надіслані, але ще не збережені в репозиторії (щоб не повторити)
     while True:
         try:
@@ -126,6 +150,8 @@ def loop(a, poll: float = 60.0) -> int:
             e = step(a, st, now)
             if e:
                 pending.append((e, now))
+            if getattr(a, "fixed", False):
+                fixed_tick(a, poll, end, last_try)
             if getattr(a, "watch", False):
                 from . import watch
                 print("[ранній сигнал]", watch.tick(st, datetime.now(timezone.utc), watch.load_cfg()))
@@ -146,6 +172,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
     ap.add_argument("--max-age-urgent", type=float, default=4.0, help="скільки годин у черзі живе гаряча новина (важливість ≥ 9)")
+    ap.add_argument("--fixed", action="store_true", help="у безперервному режимі публікувати щоденні пости (свято, курс, пальне, хвилина мовчання о 09:00:00)")
     ap.add_argument("--watch", action="store_true", help="у безперервному режимі стежити за телеграм-каналами з watch.json (ранній сигнал)")
     ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
     ap.add_argument("--dry", action="store_true", help="лише показати, що було б надіслано")
