@@ -6,7 +6,7 @@ on:
     - cron: "30 8 * * *"   # 10:30 Київ — ранок
     - cron: "0 12 * * *"   # 14:00 — обід
     - cron: "0 17 * * *"   # 19:00 — вечір
-    - cron: "30 20 * * *"  # 22:30 — підсумок дня
+    - cron: "0 19 * * *"  # 21:00 — вечірній підсумок «Світ про Україну»
   workflow_dispatch:
     inputs:
       slot:
@@ -34,7 +34,7 @@ jobs:
             "30 8 * * *") S=morning ;;
             "0 12 * * *") S=noon ;;
             "0 17 * * *") S=evening ;;
-            "30 20 * * *") S=digest ;;
+            "0 19 * * *") S=digest ;;
             *) S="${{ github.event.inputs.slot }}" ;;
           esac
           echo "slot=$S" >> "$GITHUB_OUTPUT"

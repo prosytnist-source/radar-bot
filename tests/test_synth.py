@@ -235,7 +235,7 @@ class Slots(unittest.TestCase):
         d = synth.parse_digest(json.dumps(good), rs)
         self.assertEqual(len(d["points"]), 3)
         text = telegram_fmt.render_digest(d, rs, SRC, NOW)
-        self.assertIn("Підсумок дня", text)
+        self.assertIn("підсумок дня", text)
         bad = dict(good, points=[{"uk": "x", "evidence": [{"id": q.source_id, "quote": "вигадана цитата якої нема"}]}] * 3)
         with self.assertRaises(synth.BadSynthesis):
             synth.parse_digest(json.dumps(bad), rs)

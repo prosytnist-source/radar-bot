@@ -25,6 +25,7 @@ class Item:
     link: str
     summary: str
     published: datetime  # завжди з часовим поясом (UTC)
+    country: str = ""  # країна видання (з sources.json)
     image: str = ""  # адреса ілюстрації з RSS (media:thumbnail/content, enclosure або <img>), якщо є
 
 
@@ -102,7 +103,7 @@ def parse_feed(xml_bytes: bytes, source_id: str, source_name: str) -> list[Item]
         if not published or not title or not link:
             continue
         summary = clean(f.get("description") or f.get("summary") or f.get("content"))
-        items.append(Item(source_id, source_name, title, link, summary[:600], published, image))
+        items.append(Item(source_id, source_name, title, link, summary[:600], published, image=image))
     return items
 
 
@@ -124,5 +125,7 @@ def fetch_all(sources: list[dict], workers: int = 8) -> tuple[list[Item], dict[s
         for src, (got, err) in zip(sources, pool.map(fetch_one, sources)):
             if err:
                 errors[src["id"]] = err
+            for it in got:
+                it.country = src.get("country", "")
             items.extend(got)
     return items, errors

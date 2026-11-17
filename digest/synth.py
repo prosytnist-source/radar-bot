@@ -14,7 +14,7 @@ Rules:
 3. "known": facts stated by TWO OR MORE outlets (give a quote from each). A fact from only one outlet may still be listed but with one quote only; it will be shown as "according to <outlet>".
 4. "differences": ONLY genuine conflicts (different facts, numbers, causes, or opposing interpretations). Give a quote from each side (at least two outlets). Different emphasis, different topics in short snippets, or numbers that may refer to different periods are NOT differences, unless the texts themselves present them as conflicting. If there are no conflicts return an empty list. Never invent disagreement.
 5. You only see headlines and short snippets, not full articles. NEVER conclude that an outlet "does not mention", "omits", or is "the only outlet" to report something: absence from a snippet proves nothing.
-6. "outlets": at most 4 outlets, only those whose text adds something distinct to the main story (a unique fact, framing or detail DIRECTLY about the event). Skip tangential details. Outlets that merely repeat the consensus must be left out (they are listed as links automatically). Do not start a sentence with the outlet name.
+6. "outlets": at most 5 outlets, only those whose text adds something distinct to the main story (a unique fact, framing or detail DIRECTLY about the event). Skip tangential details. Outlets that merely repeat the consensus must be left out (they are listed as links automatically). Do not start a sentence with the outlet name.
 7a. Never write a caveat saying that only headlines/snippets were analysed or that details are missing: the footer already says it.
 7. Outlets flagged state-funded or unverified funding are a perspective, not proof. Do NOT mention ownership or funding in caveats unless that outlet is the sole source of a specific claim.
 8. Neutral wording, no opinions, no loaded adjectives. Write Ukrainian (uk) and English (en) versions of every text field; keep them equivalent. Do not hedge with "or" when a snippet is clear; if a number or claim is attributed to officials, say so.
@@ -39,6 +39,11 @@ LANG_NOTE = {
     ("uk",): "OUTPUT LANGUAGE: write ONLY the Ukrainian (uk) fields; set every English (en) field to an empty string.",
     ("uk", "en"): "",
 }
+FOCUS_NOTE = ("CHANNEL FOCUS: this channel is 'Радар': what the world's leading outlets say ABOUT UKRAINE. Frame every post from that angle: "
+              "the headline names what is happening regarding Ukraine; in \"outlets\" prefer outlets from DIFFERENT countries and for each describe that outlet's OWN angle "
+              "(what it stresses, whom it quotes, how it frames Ukraine's position), not a repeat of the common facts. Include sceptical or critical framings when the texts contain them; "
+              "never filter out unflattering views and never add praise. An outlet flagged state-funded is quoted as that outlet's/government's position, never as established fact. "
+              "Mention the country of an outlet in the text only if it is needed to understand the view.")
 BATCH_NOTE = ('The user message holds several independent events (EVENT 1, EVENT 2, ...). Treat each separately; never mix facts between events. '
               'Return {"events":[{"event":<number>, ...the schema above...}, ...]} with one object per event.')
 
@@ -52,7 +57,7 @@ def build_batch_prompt(rs: list[Ranked], sources: dict[str, dict]) -> str:
 
 
 def system_for(langs=("uk", "en"), batch: bool = False, brief: bool = False) -> str:
-    return "\n".join(x for x in (SYSTEM, LANG_NOTE.get(tuple(langs), ""), BRIEF_NOTE if brief else "", BATCH_NOTE if batch else "") if x)
+    return "\n".join(x for x in (SYSTEM, FOCUS_NOTE, LANG_NOTE.get(tuple(langs), ""), BRIEF_NOTE if brief else "", BATCH_NOTE if batch else "") if x)
 
 
 def build_prompt(r: Ranked, sources: dict[str, dict]) -> str:
@@ -218,7 +223,7 @@ def parse_synthesis(raw: str, texts: dict[str, str], langs=("uk", "en")) -> dict
         "context": context,
         "known": known[:3],
         "differences": diffs[:2],
-        "outlets": outlets[:4],
+        "outlets": outlets[:5],
         "caveats": _pair(data, "caveats"),
         "off_topic": sorted(off),
         "dropped": dropped,
@@ -261,10 +266,10 @@ def select(synths: list[tuple[Ranked, dict]], top: int, max_per_region: int = 3,
     return out
 
 
-DIGEST_SYSTEM = """You write a short DAILY DIGEST post for a Ukrainian news channel from the day's top stories (headlines and snippets of several outlets each).
+DIGEST_SYSTEM = """You write the EVENING POST "What the world said about Ukraine today" for a Ukrainian channel, from the day's top stories (headlines and snippets of several foreign outlets each). Show the PICTURE of the day: what the world focused on, where outlets from different countries agree and where their angles differ.
 Rules: use ONLY the provided texts; no new facts. Every point needs a short VERBATIM quote (at least 12 characters, exactly as in the text) from an outlet that supports it, with that outlet's id. Neutral wording, at most 22 words per point. Write Ukrainian only.
 Return JSON only: {"headline":"<one line, Ukrainian>","points":[{"uk":"","evidence":[{"id":"<outlet id>","quote":"<verbatim>"}]}],"watch":"<one line about what to watch next, Ukrainian, or empty>"}
-Give 4 to 6 points, one per distinct story, most important first."""
+Give 4 to 6 points, one per distinct story, most important first. Prefer outlets from different countries across points, and in a point say whose angle it is when that is the point."""
 
 
 def build_digest_prompt(rs: list[Ranked], sources: dict[str, dict]) -> str:

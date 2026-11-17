@@ -12,18 +12,18 @@ from datetime import datetime, timezone
 from .cluster import Cluster, cluster_items
 from .fetch import fetch_all, parse_feed
 from .rank import WINDOWS_HOURS, rank
-from . import control, llm, polish, publish, state as stmod, synth, telegram_fmt
+from . import control, focus, llm, polish, publish, state as stmod, synth, telegram_fmt
 from .report import render
 
 # Бюджет найпотужнішої моделі: ранок 2, обід 1, вечір 2, підсумок дня 1 (квота скидається ~10:00 за Києвом).
 SLOTS = {
     "morning": {"window": "day", "premium": 2, "top": 10, "candidates": 16, "batch": 3},
-    "noon": {"window": "hour", "premium": 1, "top": 5, "candidates": 9, "batch": 3},
-    "evening": {"window": "hour", "premium": 2, "top": 8, "candidates": 13, "batch": 3},
+    "noon": {"window": "day", "premium": 1, "top": 5, "candidates": 9, "batch": 3},
+    "evening": {"window": "day", "premium": 2, "top": 8, "candidates": 13, "batch": 3},
     "dawn": {"window": "day", "premium": 1, "top": 6, "candidates": 12, "batch": 3},  # перед відкриттям ранку (07:00), щоб не публікувати вчорашнє
     "refresh": {"window": "hour", "premium": 0, "top": 4, "candidates": 8, "batch": 3},  # позачергове оновлення за сигналом із телеграм-каналів: лише слабка модель, дорогу не чіпає
-    "digest": {"window": "day", "premium": 1, "top": 6, "candidates": 8},
-    "hourly": {"window": "hour", "premium": 0, "top": 3, "candidates": 8, "batch": 3},  # щогодинна порція з безперервного циклу: лише запасна модель, дорогу не чіпає
+    "digest": {"window": "day", "premium": 1, "top": 6, "candidates": 8, "max_per_region": 6},
+    "hourly": {"window": "day", "premium": 0, "top": 3, "candidates": 8, "batch": 3},  # щогодинна порція з безперервного циклу: лише запасна модель, дорогу не чіпає
 }
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--langs", default="uk", choices=["uk", "uk,en"], help="мови чернеток: uk (за замовчуванням, економить квоту) або uk,en")
     ap.add_argument("--premium", type=int, default=3, help="скільки найвидатніших подій обробити окремими запитами на головній моделі")
     ap.add_argument("--batch", type=int, default=3, help="скільки решти подій в одному запиті (на запасній моделі)")
-    ap.add_argument("--max-per-region", type=int, default=3)
+    ap.add_argument("--max-per-region", type=int, default=6)  # у Радарі майже все — «Україна», тож обмеження за регіоном майже не потрібне
     ap.add_argument("--min-importance", type=int, default=6, help="не брати події з оцінкою важливості нижче (1..10)")
     ap.add_argument("--polish", type=int, default=2, help="скільки найважливіших постів літературно вичитати головною моделлю (0 = вимкнено)")
     ap.add_argument("--include-soft", action="store_true", help="не відкидати культуру/спорт")
@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--list-models", action="store_true", help="показати моделі, доступні вашому ключу")
     ap.add_argument("--publish", action="store_true", help="після генерації надіслати пости в канал (TELEGRAM_CHAT_ID), не повторюючи вже опубліковане; поважає паузу /stop")
     ap.add_argument("--enqueue", action="store_true", help="не публікувати одразу, а поставити пости в чергу: їх рівномірно випускатиме python3 -m digest.drip")
+    ap.add_argument("--no-focus", action="store_true", help="не фільтрувати за темою (Україна): усі матеріали")
     ap.add_argument("--no-dedupe", action="store_true", help="не відкидати події, про які вже писали")
     ap.add_argument("--slot", choices=list(SLOTS), help="готовий режим запуску: morning | noon | evening | digest (бюджет преміум-запитів і вікно)")
     args = ap.parse_args(argv)
@@ -85,10 +86,17 @@ def main(argv: list[str] | None = None) -> int:
         for s in sources:
             p = pathlib.Path(args.fixtures) / f"{s['id']}.xml"
             if p.exists():
-                items.extend(parse_feed(p.read_bytes(), s["id"], s["name"]))
+                got = parse_feed(p.read_bytes(), s["id"], s["name"])
+                for it in got:
+                    it.country = s.get("country", "")
+                items.extend(got)
     else:
         items, errors = fetch_all(sources)
 
+    if not args.no_focus:
+        before = len(items)
+        items = focus.apply(items, cfg)
+        print(f"Фільтр «{(cfg.get('focus') or {}).get('name', '—')}»: лишилось {len(items)} з {before} матеріалів", file=sys.stderr)
     ok = len({i.source_id for i in items})
     print(f"Джерел із даними: {ok}/{len(sources)}; матеріалів: {len(items)}", file=sys.stderr)
     for sid, err in errors.items():

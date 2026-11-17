@@ -26,6 +26,28 @@ def _outlets(n: int, lang: str) -> str:
     return f"Reported by {n} outlet{'s' if n != 1 else ''}"
 
 
+FLAG = {"UK": "🇬🇧", "Qatar": "🇶🇦", "Germany": "🇩🇪", "France": "🇫🇷", "EU": "🇪🇺", "USA": "🇺🇸", "Hong Kong / China": "🇭🇰", "China": "🇨🇳", "India": "🇮🇳", "Japan": "🇯🇵",
+        "Turkey": "🇹🇷", "Ukraine": "🇺🇦", "Latvia / Russia": "🇷🇺", "Netherlands / Russia": "🇷🇺", "Italy": "🇮🇹", "Poland": "🇵🇱", "Switzerland": "🇨🇭", "Ireland": "🇮🇪",
+        "Canada": "🇨🇦", "Australia": "🇦🇺", "Singapore": "🇸🇬", "South Korea": "🇰🇷", "Pakistan": "🇵🇰", "Israel": "🇮🇱", "Saudi Arabia": "🇸🇦"}
+COUNTRY_UK = {"UK": "Британія", "Qatar": "Катар", "Germany": "Німеччина", "France": "Франція", "EU": "ЄС", "USA": "США", "Hong Kong / China": "Гонконг / Китай", "China": "Китай",
+              "India": "Індія", "Japan": "Японія", "Turkey": "Туреччина", "Ukraine": "Україна", "Latvia / Russia": "Росія (у вигнанні)", "Netherlands / Russia": "Росія (у вигнанні)",
+              "Italy": "Італія", "Poland": "Польща", "Switzerland": "Швейцарія", "Ireland": "Ірландія", "Canada": "Канада", "Australia": "Австралія", "Singapore": "Сінгапур",
+              "South Korea": "Південна Корея", "Pakistan": "Пакистан", "Israel": "Ізраїль", "Saudi Arabia": "Саудівська Аравія"}
+
+
+def _flag(src: dict) -> str:
+    return FLAG.get(src.get("country", ""), "🌐")
+
+
+def _flags(srcs: list[dict]) -> str:
+    seen: list[str] = []
+    for s in srcs:
+        f = _flag(s)
+        if f not in seen:
+            seen.append(f)
+    return " ".join(seen[:8])
+
+
 def _bul(items: list[str]) -> str:
     return "\n".join(f"• {html.escape(i, quote=False)}" for i in items)
 
@@ -33,14 +55,17 @@ def _bul(items: list[str]) -> str:
 def _tag(src: dict, lang: str) -> str:
     base = (TYPE_LABEL if lang == "uk" else TYPE_EN).get(src.get("type", ""), "")
     warn = " ⚠️" if src.get("caution") or src.get("type") in ("state", "independent_exile") else ""
-    return f"{src.get('country', '')}, {base}{warn}".strip(", ")
+    c = src.get("country", "")
+    c = COUNTRY_UK.get(c, c) if lang == "uk" else c
+    return f"{c}, {base}{warn}".strip(", ")
 
 
 def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lang: str, tz: str = "Europe/Kyiv") -> str:
     t = T[lang]
     off = set(s.get("off_topic", []))
     links = {i.source_id: i for i in r.cluster.items if i.source_id not in off}
-    parts = [f"<b>{html.escape(s['headline'][lang], quote=False)}</b>", f"<i>{_outlets(len(links), lang)}</i>"]
+    flags = _flags([sources.get(k, {}) for k in links])
+    parts = [f"<b>{html.escape(s['headline'][lang], quote=False)}</b>", f"<i>{_outlets(len(links), lang)}{': ' + flags if flags else ''}</i>"]
     if s.get("context"):
         parts += ["", html.escape(s["context"][lang], quote=False)]
     known = []
@@ -57,7 +82,7 @@ def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lan
         if not it:
             continue
         src = sources.get(o["id"], {})
-        views.append(f'• <a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a> ({html.escape(_tag(src, lang), quote=False)}): {html.escape(o[lang], quote=False)}')
+        views.append(f'• {_flag(src)} <a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a> ({html.escape(_tag(src, lang), quote=False)}): {html.escape(o[lang], quote=False)}')
     if views:
         parts += ["", f"<b>{t['views']}</b>", "\n".join(views)]
     listed = {o["id"] for o in s["outlets"] if o["id"] in links}
@@ -85,16 +110,20 @@ def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lan
     return text
 
 
+def by_id_src(sources: dict[str, dict], it) -> str:
+    return sources.get(it.source_id, {})
+
+
 def render_digest(d: dict, rs: list[Ranked], sources: dict[str, dict], now: datetime, tz: str = "Europe/Kyiv") -> str:
     """Вечірній підсумок дня (лише українською). Кожен пункт має посилання на видання, що його підтверджує."""
     link = {}
     for r in rs:
         for i in r.cluster.items:
             link.setdefault(i.source_id, i)
-    parts = [f"<b>{html.escape(d['headline'], quote=False)}</b>", f"<i>Підсумок дня · {now.astimezone(ZoneInfo(tz)):%d.%m}</i>", ""]
+    parts = [f"<b>{html.escape(d['headline'], quote=False)}</b>", f"<i>Світ про Україну · підсумок дня, {now.astimezone(ZoneInfo(tz)):%d.%m}</i>", ""]
     for p in d["points"]:
         it = link.get(p["by"])
-        src = f' (<a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a>)' if it else ""
+        src = f' ({_flag(by_id_src(sources, it))} <a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a>)' if it else ""
         parts.append(f"• {html.escape(p['uk'], quote=False)}{src}")
     if d.get("watch"):
         parts += ["", f"<b>Що далі:</b> {html.escape(d['watch'], quote=False)}"]

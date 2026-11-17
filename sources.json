@@ -1,6 +1,6 @@
 {
   "timezone": "Europe/Kyiv",
-  "_note": "Адреси стрічок не перевірені з сервера розробки: перший запуск покаже, які не відповідають (рядки ✗). Reuters і AP не мають офіційних безкоштовних RSS, тому поки не включені.",
+  "_note": "v4.4 «Радар: світ про Україну». Адреси нових стрічок не перевірені з сервера розробки: перший запуск покаже, які не відповідають (рядки ✗) — їх просто вимкнути (enabled:false). Беруться англомовні версії видань, бо групування й перевірка цитат працюють на спільній мові.",
   "sources": [
     {
       "id": "bbc",
@@ -120,8 +120,9 @@
       "feed": "https://kyivindependent.com/news-archive/rss/",
       "country": "Ukraine",
       "type": "nonprofit",
-      "enabled": true,
-      "image_ok": true
+      "enabled": false,
+      "image_ok": true,
+      "note": "українське видання: у Радарі потрібні погляди ЗАКОРДОННИХ видань"
     },
     {
       "id": "pravda_ua",
@@ -129,7 +130,8 @@
       "feed": "https://www.pravda.com.ua/eng/rss/",
       "country": "Ukraine",
       "type": "commercial",
-      "enabled": true
+      "enabled": false,
+      "note": "українське видання: у Радарі потрібні погляди ЗАКОРДОННИХ видань"
     },
     {
       "id": "meduza",
@@ -155,7 +157,286 @@
       "feed": "https://www.kyivpost.com/feed",
       "country": "Ukraine",
       "type": "commercial",
+      "enabled": false,
+      "note": "українське видання: у Радарі потрібні погляди ЗАКОРДОННИХ видань"
+    },
+    {
+      "id": "xinhua",
+      "name": "Xinhua",
+      "feed": "http://www.xinhuanet.com/english/rss/worldrss.xml",
+      "country": "China",
+      "type": "state",
+      "enabled": true,
+      "caution": "державні медіа КНР"
+    },
+    {
+      "id": "cgtn",
+      "name": "CGTN",
+      "feed": "https://www.cgtn.com/subscribe/rss/section/world.xml",
+      "country": "China",
+      "type": "state",
+      "enabled": true,
+      "caution": "державні медіа КНР"
+    },
+    {
+      "id": "chinadaily",
+      "name": "China Daily",
+      "feed": "http://www.chinadaily.com.cn/rss/world_rss.xml",
+      "country": "China",
+      "type": "state",
+      "enabled": true,
+      "caution": "державні медіа КНР"
+    },
+    {
+      "id": "globaltimes",
+      "name": "Global Times",
+      "feed": "https://www.globaltimes.cn/rss/outbrain.xml",
+      "country": "China",
+      "type": "state",
+      "enabled": true,
+      "caution": "державні медіа КНР"
+    },
+    {
+      "id": "kyodo",
+      "name": "Kyodo News",
+      "feed": "https://english.kyodonews.net/rss/news.xml",
+      "country": "Japan",
+      "type": "commercial",
       "enabled": true
+    },
+    {
+      "id": "nikkei",
+      "name": "Nikkei Asia",
+      "feed": "https://asia.nikkei.com/rss/feed/nar",
+      "country": "Japan",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "trt",
+      "name": "TRT World",
+      "feed": "https://www.trtworld.com/rss",
+      "country": "Turkey",
+      "type": "state",
+      "enabled": true,
+      "caution": "державне мовлення Туреччини"
+    },
+    {
+      "id": "dailysabah",
+      "name": "Daily Sabah",
+      "feed": "https://www.dailysabah.com/rssFeed/world",
+      "country": "Turkey",
+      "type": "commercial",
+      "enabled": true,
+      "caution": "близьке до уряду Туреччини"
+    },
+    {
+      "id": "hurriyet",
+      "name": "Hürriyet Daily News",
+      "feed": "https://www.hurriyetdailynews.com/rss",
+      "country": "Turkey",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "turkishminute",
+      "name": "Turkish Minute",
+      "feed": "https://www.turkishminute.com/feed/",
+      "country": "Turkey",
+      "type": "independent_exile",
+      "enabled": true
+    },
+    {
+      "id": "politico_eu",
+      "name": "Politico Europe",
+      "feed": "https://www.politico.eu/feed/",
+      "country": "EU",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "euractiv",
+      "name": "Euractiv",
+      "feed": "https://www.euractiv.com/feed/",
+      "country": "EU",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "spiegel",
+      "name": "Der Spiegel International",
+      "feed": "https://www.spiegel.de/international/index.rss",
+      "country": "Germany",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "lemonde",
+      "name": "Le Monde (English)",
+      "feed": "https://www.lemonde.fr/en/rss/une.xml",
+      "country": "France",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "ansa",
+      "name": "ANSA English",
+      "feed": "https://www.ansa.it/english/news/english_nr_rss.xml",
+      "country": "Italy",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "notesfrompoland",
+      "name": "Notes from Poland",
+      "feed": "https://notesfrompoland.com/feed/",
+      "country": "Poland",
+      "type": "independent",
+      "enabled": true
+    },
+    {
+      "id": "swissinfo",
+      "name": "SWI swissinfo.ch",
+      "feed": "https://www.swissinfo.ch/eng/rss/top-news",
+      "country": "Switzerland",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "rte",
+      "name": "RTÉ News",
+      "feed": "https://www.rte.ie/news/rss/news-headlines.xml",
+      "country": "Ireland",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "wapo",
+      "name": "The Washington Post",
+      "feed": "https://feeds.washingtonpost.com/rss/world",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "cnn",
+      "name": "CNN",
+      "feed": "http://rss.cnn.com/rss/edition_world.rss",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "politico_us",
+      "name": "Politico",
+      "feed": "https://rss.politico.com/politics-news.xml",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "cbs",
+      "name": "CBS News",
+      "feed": "https://www.cbsnews.com/latest/rss/world",
+      "country": "USA",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "cbc",
+      "name": "CBC News",
+      "feed": "https://www.cbc.ca/webfeed/rss/rss-world",
+      "country": "Canada",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "abc_au",
+      "name": "ABC Australia",
+      "feed": "https://www.abc.net.au/news/feed/2942460/rss.xml",
+      "country": "Australia",
+      "type": "public",
+      "enabled": true
+    },
+    {
+      "id": "straitstimes",
+      "name": "The Straits Times",
+      "feed": "https://www.straitstimes.com/news/world/rss.xml",
+      "country": "Singapore",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "koreaherald",
+      "name": "The Korea Herald",
+      "feed": "http://www.koreaherald.com/common/rss_xml.php?ct=102",
+      "country": "South Korea",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "hindu",
+      "name": "The Hindu",
+      "feed": "https://www.thehindu.com/news/international/feeder/default.rss",
+      "country": "India",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "hindustantimes",
+      "name": "Hindustan Times",
+      "feed": "https://www.hindustantimes.com/feeds/rss/world-news/rssfeed.xml",
+      "country": "India",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "dawn",
+      "name": "Dawn",
+      "feed": "https://www.dawn.com/feeds/home",
+      "country": "Pakistan",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "timesofisrael",
+      "name": "The Times of Israel",
+      "feed": "https://www.timesofisrael.com/feed/",
+      "country": "Israel",
+      "type": "commercial",
+      "enabled": true
+    },
+    {
+      "id": "arabnews",
+      "name": "Arab News",
+      "feed": "https://www.arabnews.com/rss.xml",
+      "country": "Saudi Arabia",
+      "type": "commercial",
+      "enabled": true,
+      "caution": "фінансується саудівськими інвесторами, близьке до влади"
     }
-  ]
+  ],
+  "focus": {
+    "name": "Україна",
+    "require": [
+      "ukrain",
+      "kyiv",
+      "kiev",
+      "zelensk",
+      "donbas",
+      "donetsk",
+      "luhansk",
+      "kharkiv",
+      "kherson",
+      "zaporizh",
+      "odesa",
+      "odessa",
+      "crimea",
+      "dnipro",
+      "mariupol",
+      "bakhmut",
+      "pokrovsk",
+      "lviv"
+    ]
+  }
 }

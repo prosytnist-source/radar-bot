@@ -22,6 +22,7 @@ class Ranked:
     fresh_sources: int
     single_source: bool
     soft: bool = False
+    countries: int = 0
 
 
 def rank(clusters: list[Cluster], now: datetime, window: str = "day", min_sources: int = 2, top: int = 10) -> list[Ranked]:
@@ -37,11 +38,13 @@ def rank(clusters: list[Cluster], now: datetime, window: str = "day", min_source
         fresh = {i.source_id for i in inside if i.published >= fresh_start}
         age_h = max((now - max(i.published for i in inside)).total_seconds() / 3600, 0.0)
         recency = math.exp(-age_h / (hours / 2))
-        score = len(srcs) + 0.5 * len(fresh) + 2.0 * recency
+        countries = {i.country for i in inside if i.country}
+        # різноманітність країн важить більше за кількість видань: «радар» цінний, коли думки з різних куточків світу
+        score = len(srcs) + 0.5 * len(fresh) + 2.0 * recency + 0.8 * min(len(countries), 6)
         soft = sum(1 for i in inside if SOFT.search(i.link)) * 4 >= len(inside)  # чверті матеріалів із розділу «культура/спорт» достатньо
         if soft:
             score *= SOFT_FACTOR
-        out.append(Ranked(Cluster(items=inside, vec=c.vec), score, len(srcs), len(fresh), len(srcs) < min_sources, soft))
+        out.append(Ranked(Cluster(items=inside, vec=c.vec), score, len(srcs), len(fresh), len(srcs) < min_sources, soft, len(countries)))
     # події з одного джерела не відкидаємо, але вони йдуть після підтверджених
     out.sort(key=lambda r: (r.single_source, -r.score))  # м'які теми вже здешевлені коефіцієнтом
     return out[:top]
