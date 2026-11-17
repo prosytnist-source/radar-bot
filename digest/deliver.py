@@ -9,6 +9,7 @@ from datetime import datetime
 from . import card, images, publish
 
 CAPTION_LIMIT = 1000
+photo_ok = images.usable  # перевірка перед відправкою (у тестах підміняється)
 
 
 def send_card_text(token: str, chat: str, spec: dict, html_text: str) -> bool:
@@ -35,6 +36,8 @@ def send_entry(e: dict, token: str, chat: str, st=None, now: datetime | None = N
     prev = e.get("preview")
     if prev and used and used.has(prev):
         prev = None  # це фото вже було в каналі
+    if prev and not photo_ok(prev):
+        prev = None  # порожня чи дрібна картинка (заглушка): краще власна картка
     html_text = e["html"]
     if prev:
         if e.get("credit"):

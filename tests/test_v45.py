@@ -46,17 +46,56 @@ class Images(unittest.TestCase):
         self.assertIsNone(run.pick_photo(r, by_id, images.Used(st), {images.key("https://dw/2.jpg")}))  # державне не береться
 
 
+class PhotoCheck(unittest.TestCase):
+    def test_check_rejects_blank_and_falls_to_next(self):
+        by_id = {"npr": {"image_ok": True}, "bbc": {"image_ok": True}}
+        its = [Item("npr", "NPR", "t", "https://npr/a", "", NOW, image="https://npr/blank.png"), Item("bbc", "BBC", "t", "https://bbc/a", "", NOW - timedelta(minutes=5), image="https://bbc/real.jpg")]
+        r = Ranked(Cluster(items=its, vec={}), 1, 2, 2, False)
+        self.assertEqual(run.pick_photo(r, by_id, check=lambda u: "real" in u)["image"], "https://bbc/real.jpg")
+        self.assertIsNone(run.pick_photo(r, by_id, check=lambda u: False))  # годящої нема → піде картка
+
+    def test_usable_rejects_blank_white_image(self):
+        from PIL import Image
+        import io
+        buf = io.BytesIO()
+        Image.new("RGB", (800, 600), (255, 255, 255)).save(buf, "PNG")
+        noisy = io.BytesIO()
+        im = Image.new("RGB", (800, 600))
+        px = im.load()
+        for x in range(800):
+            for y in range(600):
+                px[x, y] = ((x * 7) % 256, (y * 5) % 256, (x * y) % 256)
+        im.save(noisy, "PNG")
+
+        class R:
+            def __init__(s, data): s.data, s.headers = data, {"Content-Type": "image/png"}
+            def read(s, n): return s.data
+            def __enter__(s): return s
+            def __exit__(s, *a): return False
+        with mock.patch.object(images, "urlopen", return_value=R(buf.getvalue() + b"0" * 9000)):
+            self.assertFalse(images.usable("https://x/blank.png"))
+        with mock.patch.object(images, "urlopen", return_value=R(noisy.getvalue())):
+            self.assertTrue(images.usable("https://x/real.png"))
+
+
 class Deliver(unittest.TestCase):
     def test_photo_used_once_then_card(self):
         st = st_tmp()
         e = {"html": "<b>x</b>", "preview": "https://bbc/1.jpg", "credit": "<i>Фото</i>", "card": None}
-        with mock.patch.object(deliver.publish, "send") as send, mock.patch.object(deliver, "send_card_text", return_value=True) as sc:
+        with mock.patch.object(deliver.publish, "send") as send, mock.patch.object(deliver, "send_card_text", return_value=True) as sc, mock.patch.object(deliver, "photo_ok", return_value=True):
             deliver.send_entry(e, "t", "c", st, NOW)
             self.assertEqual(send.call_args[0][3], "https://bbc/1.jpg")
             self.assertIn("Фото", send.call_args[0][2])
             e2 = dict(e, card={"title": "T"})
             deliver.send_entry(e2, "t", "c", st, NOW)  # те саме фото вдруге → картка
             sc.assert_called_once()
+
+    def test_blank_photo_becomes_card(self):
+        e = {"html": "x", "preview": "https://npr/blank.png", "credit": "c", "card": {"title": "T"}}
+        with mock.patch.object(deliver.publish, "send") as send, mock.patch.object(deliver, "send_card_text", return_value=True) as sc, mock.patch.object(deliver, "photo_ok", return_value=False):
+            deliver.send_entry(e, "t", "c", st_tmp(), NOW)
+            sc.assert_called_once()
+            send.assert_not_called()
 
     def test_no_photo_no_card_lib_falls_back_to_text(self):
         with mock.patch.object(deliver.publish, "send") as send, mock.patch.object(card, "available", return_value=False):

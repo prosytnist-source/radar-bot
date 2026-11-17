@@ -250,7 +250,7 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
     for n, (r, s) in enumerate(chosen, 1):
         for lang in langs:
             (out / f"{n:02d}-{lang}.html").write_text(telegram_fmt.render_post(r, s, by_id, now, lang, tz), encoding="utf-8")
-        pk = pick_photo(r, by_id, used, taken)
+        pk = pick_photo(r, by_id, used, taken, images.usable)
         if pk:
             taken.add(images.key(pk["image"]))
         meta = {"preview": pk["image"] if pk else None, "credit": pk["credit"] if pk else None, "headline": s["headline"]["uk"], "chips": telegram_fmt.chips([r], by_id)}
@@ -264,7 +264,7 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
     return 0
 
 
-def pick_photo(r, by_id, used=None, taken=None) -> dict | None:
+def pick_photo(r, by_id, used=None, taken=None, check=None) -> dict | None:
     """Фото для посту: свіже, з RSS, лише з видань image_ok (без державних), і таке, що ще не траплялось у каналі.
     Повертає {image, link, credit} або None (тоді піде власна картка РАДАР)."""
     for it in sorted(r.cluster.items, key=lambda i: i.published, reverse=True):
@@ -272,6 +272,9 @@ def pick_photo(r, by_id, used=None, taken=None) -> dict | None:
         if not (it.image and src.get("image_ok")) or src.get("caution") or src.get("type") in ("state", "independent_exile"):
             continue
         if (used and used.has(it.image)) or (taken and images.key(it.image) in taken):
+            continue
+        if check and not check(it.image):  # порожня, дрібна чи однотонна картинка — не фото
+            print(f"  (фото відкинуто як непридатне: {it.image[:80]})", file=sys.stderr)
             continue
         credit = f'<i>Фото: <a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a></i>'
         return {"image": it.image, "link": it.link, "credit": credit}
