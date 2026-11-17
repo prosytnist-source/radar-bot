@@ -58,6 +58,23 @@ class State:
     def set_last_sent(self, t: datetime) -> None:
         (self.dir / "last_sent.txt").write_text(t.isoformat(), encoding="utf-8")
 
+    # --- журнал подій (для вечірнього звіту) ---
+    def log_event(self, kind: str, headline: str, now: datetime) -> None:
+        try:
+            ev = json.loads((self.dir / "log.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            ev = []
+        ev.append({"t": now.isoformat(), "kind": kind, "headline": headline})
+        cut = now - timedelta(days=7)
+        ev = [e for e in ev if datetime.fromisoformat(e["t"]) >= cut]
+        (self.dir / "log.json").write_text(json.dumps(ev, ensure_ascii=False), encoding="utf-8")
+
+    def events(self) -> list[dict]:
+        try:
+            return json.loads((self.dir / "log.json").read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+
     # --- пауза ---
     def paused(self) -> bool:
         return self.pause_file.exists()

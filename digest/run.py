@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from .cluster import Cluster, cluster_items
 from .fetch import fetch_all, parse_feed
 from .rank import WINDOWS_HOURS, rank
-from . import control, llm, publish, state as stmod, synth, telegram_fmt
+from . import control, llm, polish, publish, state as stmod, synth, telegram_fmt
 from .report import render
 
 # Бюджет найпотужнішої моделі: ранок 2, обід 1, вечір 2, підсумок дня 1 (квота скидається ~10:00 за Києвом).
@@ -43,6 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--premium", type=int, default=3, help="скільки найвидатніших подій обробити окремими запитами на головній моделі")
     ap.add_argument("--batch", type=int, default=3, help="скільки решти подій в одному запиті (на запасній моделі)")
     ap.add_argument("--max-per-region", type=int, default=3)
+    ap.add_argument("--min-importance", type=int, default=6, help="не брати події з оцінкою важливості нижче (1..10)")
+    ap.add_argument("--polish", type=int, default=2, help="скільки найважливіших постів літературно вичитати головною моделлю (0 = вимкнено)")
     ap.add_argument("--include-soft", action="store_true", help="не відкидати культуру/спорт")
     ap.add_argument("--dry-prompt", action="store_true", help="показати запит до моделі без виклику (ключ не потрібен)")
     ap.add_argument("--list-models", action="store_true", help="показати моделі, доступні вашому ключу")
@@ -224,7 +226,11 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
     except llm.LLMError as exc:
         print(f"  ✗ {str(exc)[:160]}", file=sys.stderr)
         print("Ліміт або перевантаження: зупиняюсь і зберігаю, що встигли. Спробуйте пізніше (ліміт оновлюється щодоби за тихоокеанським часом).", file=sys.stderr)
-    chosen = synth.select(list(done.values()), args.top, args.max_per_region, args.include_soft)
+    chosen = synth.select(list(done.values()), args.top, args.max_per_region, args.include_soft, args.min_importance)
+    if args.polish > 0 and chosen and state["model"] == args.model:  # якщо головна модель вичерпана, вичитку пропускаємо
+        for r, sy in chosen[: args.polish]:
+            if polish.apply(sy, args.model, key, ck_of(r).with_suffix(".polished")):
+                print(f"  ✎ вичитано: {sy['headline']['uk'][:60]}", file=sys.stderr)
     out = ROOT / "drafts" / f"{now:%Y%m%d-%H%M}-{args.window}"
     out.mkdir(parents=True, exist_ok=True)
     for n, (r, s) in enumerate(chosen, 1):

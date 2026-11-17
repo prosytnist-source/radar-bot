@@ -237,9 +237,9 @@ def norm_region(v: str) -> str:
     return "world"
 
 
-def select(synths: list[tuple[Ranked, dict]], top: int, max_per_region: int = 3, include_soft: bool = False) -> list[tuple[Ranked, dict]]:
+def select(synths: list[tuple[Ranked, dict]], top: int, max_per_region: int = 3, include_soft: bool = False, min_importance: int = 0) -> list[tuple[Ranked, dict]]:
     """Остаточний відбір: важливість від моделі, обмеження на регіон, культура/спорт — лише за прапором."""
-    pool = [x for x in synths if include_soft or x[1]["category"] not in SOFT_CATS]
+    pool = [x for x in synths if (include_soft or x[1]["category"] not in SOFT_CATS) and x[1]["importance"] >= min_importance]
     # важливість за оцінкою моделі + охоплення (кількість видань, не більше 8): історії, які висвітлює багато видань, не губляться
     pool.sort(key=lambda x: (x[0].single_source, -(x[1]["importance"] + 0.6 * min(x[0].sources - len(x[1].get("off_topic", [])), 8)), -x[0].score))
     from .state import similar_headlines

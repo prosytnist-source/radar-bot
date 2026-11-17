@@ -52,7 +52,12 @@ def main(argv=None) -> int:
     if st.paused():
         print("⏸ Пауза (/stop): нічого не публікую.")
         return 0
-    q = [e for e in st.load_queue() if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=a.max_age)]
+    full = st.load_queue()
+    q = [e for e in full if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=a.max_age)]
+    if not a.dry:
+        for e in full:
+            if e not in q:
+                st.log_event("expired", e["headline"], now)
     e = choose(q, now, st.last_sent())
     if not e:
         print(f"Черга: {len(q)}; зараз нічого публікувати (інтервал, ніч або порожньо).")
@@ -69,6 +74,7 @@ def main(argv=None) -> int:
             return 0
         q.remove(e)
         st.set_last_sent(now)
+        st.log_event("sent", e["headline"], now)
         st.save_queue(q)
     return 0
 

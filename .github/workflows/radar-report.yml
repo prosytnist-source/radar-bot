@@ -1,0 +1,22 @@
+name: radar-report
+# Вечірній звіт власнику в особисті повідомлення з ботом. 21:30 UTC = 23:30 Київ взимку (влітку — 20:30 UTC).
+on:
+  schedule:
+    - cron: "30 21 * * *"
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Звіт
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+        run: python -m digest.daily
