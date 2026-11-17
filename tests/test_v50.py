@@ -148,6 +148,19 @@ class Wipe(unittest.TestCase):
         self.assertEqual(flat, list(range(1, 251)))
         self.assertTrue(all(len(b) <= 100 for b in seen))
 
+    def test_falls_back_to_single_deletes_when_batch_rejected(self):
+        single = []
+        def api(method, token, params):
+            if method == "deleteMessages":
+                raise SystemExit("Telegram: HTTP 400 message can't be deleted")
+            i = params["message_id"]
+            if i == 1:
+                raise SystemExit("service message")
+            single.append(i)
+            return {"ok": True}
+        wipe.wipe("t", "c", api=api, top=21)
+        self.assertEqual(sorted(single), list(range(2, 22)))
+
     def test_needs_exact_confirmation(self):
         self.assertEqual(wipe.main(["--confirm", "так"]), 1)
 

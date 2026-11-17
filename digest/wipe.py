@@ -18,15 +18,29 @@ def last_id(token: str, chat: str) -> int:
 
 
 def wipe(token: str, chat: str, api=publish.api, top: int | None = None) -> int:
+    """Пакет із хоча б одним невидалюваним повідомленням (службовим, чужим) Telegram відхиляє цілком,
+    тому при збої пакет розбираємо й видаляємо повідомлення по одному. Повертає найбільший номер."""
     n = top if top is not None else last_id(token, chat)
-    done = 0
+    deleted = skipped = 0
     for hi in range(n, 0, -BATCH):
         ids = list(range(max(hi - BATCH + 1, 1), hi + 1))
         try:
             r = api("deleteMessages", token, {"chat_id": chat, "message_ids": json.dumps(ids)})
-            done += len(ids) if r.get("ok") else 0
-        except SystemExit as exc:
-            print(f"  (пакет {ids[0]}–{ids[-1]} не видалено: {str(exc)[:120]})", file=sys.stderr)
+            if r.get("ok"):
+                deleted += len(ids)
+                continue
+        except SystemExit:
+            pass
+        for i in ids:  # пакет не пройшов: по одному
+            try:
+                r = api("deleteMessage", token, {"chat_id": chat, "message_id": i})
+                if r.get("ok"):
+                    deleted += 1
+                else:
+                    skipped += 1
+            except SystemExit:
+                skipped += 1  # службове повідомлення, чуже або вже видалене
+    print(f"Видалено: {deleted}; пропущено (службові, чужі чи вже видалені): {skipped}", file=sys.stderr)
     return n
 
 
