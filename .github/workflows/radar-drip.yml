@@ -26,4 +26,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
-        run: python -m digest.drip --loop 55 --git --watch --fixed --drop-before 2026-11-17T04:40
+        run: python -m digest.drip --loop 55 --git --watch --fixed --gen-every 60 --drop-before 2026-11-17T04:40

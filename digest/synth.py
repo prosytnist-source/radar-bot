@@ -21,7 +21,7 @@ Rules:
 8a. COHERENCE: all items in a cluster must describe the SAME event. Set "same_event" to false if the cluster mixes unrelated events; list in "off_topic" the ids of outlets whose item is about a different event than the main story (they will be removed). If fewer than two outlets remain on the main event, set "same_event" to false.
 8b. HEADLINE: at most 90 characters, no trailing period, names the event (who/what happened), never stronger than the facts below it. Any number in the headline must appear in the texts. Name the main person, organisation or country (e.g. \"Trump\", \"Estonia\"); avoid vague nouns like \"discussion\", \"events\" or \"situation\".
 8c. CONTEXT: ONE sentence of background (why this matters / who is who) taken from the texts, with a verbatim quote as evidence. If the texts give no such background, leave context empty strings and an empty evidence list.
-9. Keep it short and punchy. Limits: "known" at most 3 items, "differences" at most 2, "caveats" at most 2, each sentence at most 25 words.
+9. SELF-SUFFICIENT: the reader will not open the links (they are in another language), so the post alone must say what happened: who, what, where, and the key number or consequence, using ONLY the texts. Give 3 items in "known" whenever the texts support them (never fewer than 2 unless the texts hold only one fact), and fill "context" whenever the texts allow. Limits: "known" at most 3 items, "differences" at most 2, "caveats" at most 2, each sentence at most 25 words.
 Return JSON only, exactly in this schema:
 {"category":"war|politics|economy|society|tech|science|health|environment|culture|sport|other",
  "region":"EXACTLY ONE of: Ukraine-Russia, Middle East, USA, EU, UK, Asia, Africa, Latin America, World. Any event involving Ukraine or Russia (including strikes, talks, sanctions, border incidents with Russia) is Ukraine-Russia. Use English only.",
@@ -237,11 +237,15 @@ def norm_region(v: str) -> str:
     return "world"
 
 
+# Аудиторія українська: Україна й безпека поруч важать більше, віддалені регіони менше (при однаковій оцінці важливості).
+REGION_BONUS = {"ukraine-russia": 2.0, "eu": 0.8, "usa": 0.3, "uk": 0.0, "middle east": 0.0, "world": 0.0, "asia": -0.5, "africa": -0.7, "latin america": -0.7}
+
+
 def select(synths: list[tuple[Ranked, dict]], top: int, max_per_region: int = 3, include_soft: bool = False, min_importance: int = 0) -> list[tuple[Ranked, dict]]:
     """Остаточний відбір: важливість від моделі, обмеження на регіон, культура/спорт — лише за прапором."""
     pool = [x for x in synths if (include_soft or x[1]["category"] not in SOFT_CATS) and x[1]["importance"] >= min_importance]
     # важливість за оцінкою моделі + охоплення (кількість видань, не більше 8): історії, які висвітлює багато видань, не губляться
-    pool.sort(key=lambda x: (x[0].single_source, -(x[1]["importance"] + 0.6 * min(x[0].sources - len(x[1].get("off_topic", [])), 8)), -x[0].score))
+    pool.sort(key=lambda x: (x[0].single_source, -(x[1]["importance"] + 0.6 * min(x[0].sources - len(x[1].get("off_topic", [])), 8) + REGION_BONUS.get(norm_region(x[1]["region"]), 0.0)), -x[0].score))
     from .state import similar_headlines
     out, per = [], {}
     for r, s in pool:

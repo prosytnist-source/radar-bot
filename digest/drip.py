@@ -20,7 +20,7 @@ URGENT = 9
 
 
 def interval_minutes(n: int) -> float:
-    return min(60.0, max(15.0, 240.0 / max(n, 1)))
+    return min(40.0, max(15.0, 240.0 / max(n, 1)))
 
 
 def choose(q: list[dict], now: datetime, last: datetime | None, tz: str = "Europe/Kyiv", night=(23, 7)) -> dict | None:
@@ -172,6 +172,9 @@ def loop(a, poll: float = 60.0) -> int:
                 pending.append((e, now))
             if getattr(a, "fixed", False):
                 fixed_tick(a, poll, end, last_try)
+            if getattr(a, "gen_every", 0):
+                from . import gen
+                print("[свіжа порція]", gen.tick(st, datetime.now(timezone.utc), a.gen_every))
             if getattr(a, "watch", False):
                 from . import watch
                 print("[ранній сигнал]", watch.tick(st, datetime.now(timezone.utc), watch.load_cfg()))
@@ -190,7 +193,8 @@ def loop(a, poll: float = 60.0) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
+    ap.add_argument("--gen-every", type=float, default=0, help="у безперервному режимі: раз на стільки хвилин (вдень) генерувати невелику свіжу порцію в чергу; 0 — вимкнено")
+    ap.add_argument("--max-age", type=float, default=8.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
     ap.add_argument("--max-age-urgent", type=float, default=4.0, help="скільки годин у черзі живе гаряча новина (важливість ≥ 9)")
     ap.add_argument("--drop-before", help="UTC 'YYYY-MM-DDTHH:MM': прибрати з черги пости, створені раніше (безпечно лишати в команді: на пізніші пости не діє)")
     ap.add_argument("--fixed", action="store_true", help="у безперервному режимі публікувати щоденні пости (свято, курс, пальне, хвилина мовчання о 09:00:00)")

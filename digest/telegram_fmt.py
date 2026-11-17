@@ -17,6 +17,15 @@ T = {
 TYPE_EN = {"public": "public broadcaster", "state": "state-funded", "commercial": "commercial", "nonprofit": "non-profit", "independent_exile": "independent, in exile"}
 
 
+def _outlets(n: int, lang: str) -> str:
+    if lang == "uk":
+        w = "видання" if n % 10 in (1, 2, 3, 4) and n % 100 not in (11, 12, 13, 14) else "видань"
+        if n % 10 == 1 and n % 100 != 11:
+            w = "видання"
+        return f"Пишуть {n} {w}"
+    return f"Reported by {n} outlet{'s' if n != 1 else ''}"
+
+
 def _bul(items: list[str]) -> str:
     return "\n".join(f"• {html.escape(i, quote=False)}" for i in items)
 
@@ -31,7 +40,7 @@ def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lan
     t = T[lang]
     off = set(s.get("off_topic", []))
     links = {i.source_id: i for i in r.cluster.items if i.source_id not in off}
-    parts = [f"<b>{html.escape(s['headline'][lang], quote=False)}</b>", f"<i>{t['asof']} {now.astimezone(ZoneInfo(tz)):%d.%m %H:%M} · {len(links)} {t['outlets']}</i>"]
+    parts = [f"<b>{html.escape(s['headline'][lang], quote=False)}</b>", f"<i>{_outlets(len(links), lang)}</i>"]
     if s.get("context"):
         parts += ["", html.escape(s["context"][lang], quote=False)]
     known = []
@@ -58,8 +67,7 @@ def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lan
             continue
         seen.add(it.source_id)
         src = sources.get(it.source_id, {})
-        warn = " ⚠️" if src.get("caution") or src.get("type") in ("state", "independent_exile") else ""
-        rest.append(f'<a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a>{warn}')
+        rest.append(f'<a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a>')
     if rest:
         parts += ["", f"<b>{t['also']}:</b> " + " · ".join(rest)]
     cav = list(s["caveats"][lang])
@@ -67,7 +75,6 @@ def render_post(r: Ranked, s: dict, sources: dict[str, dict], now: datetime, lan
         cav.insert(0, t["single"])
     if cav:
         parts += ["", "⚠️ " + "\n⚠️ ".join(html.escape(c, quote=False) for c in cav)]
-    parts += ["", f"<i>{t['foot']}</i>"]
     text = "\n".join(parts)
     if len(text) > LIMIT:  # скорочуємо перелік поглядів, а не обрізаємо посеред тегу
         while views and len("\n".join(parts)) > LIMIT:
@@ -91,5 +98,4 @@ def render_digest(d: dict, rs: list[Ranked], sources: dict[str, dict], now: date
         parts.append(f"• {html.escape(p['uk'], quote=False)}{src}")
     if d.get("watch"):
         parts += ["", f"<b>Що далі:</b> {html.escape(d['watch'], quote=False)}"]
-    parts += ["", f"<i>{T['uk']['foot']}</i>"]
     return "\n".join(parts)[:LIMIT]

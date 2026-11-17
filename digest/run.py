@@ -17,12 +17,13 @@ from .report import render
 
 # Бюджет найпотужнішої моделі: ранок 2, обід 1, вечір 2, підсумок дня 1 (квота скидається ~10:00 за Києвом).
 SLOTS = {
-    "morning": {"window": "day", "premium": 2, "top": 10, "candidates": 16, "batch": 5},
-    "noon": {"window": "hour", "premium": 1, "top": 5, "candidates": 9, "batch": 5},
-    "evening": {"window": "hour", "premium": 2, "top": 8, "candidates": 13, "batch": 5},
-    "dawn": {"window": "day", "premium": 1, "top": 6, "candidates": 12, "batch": 5},  # перед відкриттям ранку (07:00), щоб не публікувати вчорашнє
-    "refresh": {"window": "hour", "premium": 0, "top": 4, "candidates": 8, "batch": 4},  # позачергове оновлення за сигналом із телеграм-каналів: лише слабка модель, дорогу не чіпає
+    "morning": {"window": "day", "premium": 2, "top": 10, "candidates": 16, "batch": 3},
+    "noon": {"window": "hour", "premium": 1, "top": 5, "candidates": 9, "batch": 3},
+    "evening": {"window": "hour", "premium": 2, "top": 8, "candidates": 13, "batch": 3},
+    "dawn": {"window": "day", "premium": 1, "top": 6, "candidates": 12, "batch": 3},  # перед відкриттям ранку (07:00), щоб не публікувати вчорашнє
+    "refresh": {"window": "hour", "premium": 0, "top": 4, "candidates": 8, "batch": 3},  # позачергове оновлення за сигналом із телеграм-каналів: лише слабка модель, дорогу не чіпає
     "digest": {"window": "day", "premium": 1, "top": 6, "candidates": 8},
+    "hourly": {"window": "hour", "premium": 0, "top": 3, "candidates": 8, "batch": 3},  # щогодинна порція з безперервного циклу: лише запасна модель, дорогу не чіпає
 }
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -209,18 +210,18 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
         for i in range(0, len(bulk), args.batch):  # решта: кілька історій в одному запиті
             chunk = bulk[i : i + args.batch]
             try:
-                raw, _ = call(synth.system_for(langs, batch=True, brief=True), synth.build_batch_prompt(chunk, by_id), bulk_model)
+                raw, _ = call(synth.system_for(langs, batch=True), synth.build_batch_prompt(chunk, by_id), bulk_model)
                 for r, (res, rawev) in zip(chunk, synth.parse_batch(raw, chunk, langs)):
                     if isinstance(res, Exception):
                         print(f"  ✗ {r.cluster.items[0].title[:50]}: {res}", file=sys.stderr)
                         if "заголовка" in str(res) or "неоднорідний" in str(res):
-                            single(r, bulk_model, brief=True)
+                            single(r, bulk_model)
                     else:
-                        accept(r, res, rawev, True)
+                        accept(r, res, rawev)
             except synth.BadSynthesis as exc:
                 print(f"  ✗ пакет: {exc}; обробляю історії окремо", file=sys.stderr)
                 for r in chunk:
-                    single(r, bulk_model, allow_split=False, brief=True)
+                    single(r, bulk_model, allow_split=False)
             except llm.LLMError as exc:
                 if "HTTP 429" in str(exc):
                     raise
