@@ -42,6 +42,18 @@ def _limit(e: dict, a) -> float:
     return getattr(a, "max_age_urgent", 4.0) if e["importance"] >= URGENT else a.max_age
 
 
+def _created(e: dict) -> datetime:
+    t = datetime.fromisoformat(e["created"])
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _drop_before(a) -> datetime | None:
+    v = getattr(a, "drop_before", None)
+    if not v:
+        return None
+    return datetime.fromisoformat(v).replace(tzinfo=timezone.utc)
+
+
 def step(a, st: State, now: datetime) -> dict | None:
     """Один цикл подачі: команди керування, вибір допису, надсилання. Повертає надісланий допис (або None)."""
     try:
@@ -55,6 +67,14 @@ def step(a, st: State, now: datetime) -> dict | None:
         return None
     full = st.load_queue()
     q = [e for e in full if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=_limit(e, a))]
+    cut = _drop_before(a)
+    if cut:  # разове очищення: усе, створене до вказаного моменту, прибрати з черги й дозволити згенерувати свіжу версію
+        old = [e for e in q if _created(e) < cut]
+        if old and not a.dry:
+            for e in old:
+                st.forget(e["headline"])
+            print(f"Очищено застарілих постів: {len(old)} (створені до {cut.isoformat(timespec='minutes')}).")
+        q = [e for e in q if _created(e) >= cut]
     if not a.dry:
         for e in full:
             if e not in q:
@@ -172,6 +192,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
     ap.add_argument("--max-age-urgent", type=float, default=4.0, help="скільки годин у черзі живе гаряча новина (важливість ≥ 9)")
+    ap.add_argument("--drop-before", help="UTC 'YYYY-MM-DDTHH:MM': прибрати з черги пости, створені раніше (безпечно лишати в команді: на пізніші пости не діє)")
     ap.add_argument("--fixed", action="store_true", help="у безперервному режимі публікувати щоденні пости (свято, курс, пальне, хвилина мовчання о 09:00:00)")
     ap.add_argument("--watch", action="store_true", help="у безперервному режимі стежити за телеграм-каналами з watch.json (ранній сигнал)")
     ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
