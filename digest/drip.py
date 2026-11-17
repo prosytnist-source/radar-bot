@@ -173,8 +173,8 @@ def loop(a, poll: float = 60.0) -> int:
             if getattr(a, "fixed", False):
                 fixed_tick(a, poll, end, last_try)
             if getattr(a, "daily", False):
-                from . import poll, toprating
-                for name, fn in (("опитування", poll.tick), ("топ-рейтинг", toprating.tick)):
+                from . import poll as poll_mod, toprating  # не «poll»: так називається пауза між циклами
+                for name, fn in (("опитування", poll_mod.tick), ("топ-рейтинг", toprating.tick)):
                     try:
                         print(f"[{name}]", fn(st, datetime.now(timezone.utc)))
                     except Exception as exc:  # noqa: BLE001

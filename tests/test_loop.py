@@ -45,6 +45,17 @@ class Loop(unittest.TestCase):
             self.assertEqual(q, [])  # стан запушено: допис прибрано з черги
             self.assertEqual(stmod.State(d / "check" / "state").events()[0]["headline"], "Термінова")
 
+    def test_daily_flag_does_not_break_loop(self):
+        """Регресія v4.5: імпорт модуля poll затирав змінну паузи poll, цикл падав на кінці першого кроку."""
+        from digest import poll as poll_mod, toprating
+        with tempfile.TemporaryDirectory() as d:
+            st_dir = pathlib.Path(d) / "state"
+            a = Namespace(max_age=13, dry=False, loop=0.03, git=False, poll=1, daily=True)
+            with mock.patch.object(drip, "ROOT", pathlib.Path(d)), mock.patch.object(drip.control, "sync", return_value=[]), \
+                 mock.patch.object(poll_mod, "tick", return_value="тест") as p1, mock.patch.object(toprating, "tick", return_value="тест") as p2:
+                self.assertEqual(drip.loop(a, poll=0.2), 0)
+            self.assertTrue(p1.called and p2.called)
+
 
 if __name__ == "__main__":
     unittest.main()
