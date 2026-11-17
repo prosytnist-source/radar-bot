@@ -5,7 +5,7 @@ from digest import fixed, state as stmod
 from digest.calendar_ua import holidays_for, orthodox_easter, nth_weekday
 
 PAGE = """<html><body><h2>Середні ціни за провідними операторами на 16.11.2026 (грн./літр)</h2>
-<table><tr><th>Оператор</th><th></th><th>А 95+</th><th>А 95</th><th>А 92</th><th>ДП</th><th>Газ</th></tr>
+<table><tr><th>Оператор</th><th>А 95+</th><th>А 95</th><th>А 92</th><th>ДП</th><th>Газ</th></tr>
 <tr><td>AMIC</td><td></td><td>89,90</td><td>86,90</td><td></td><td>101,96</td><td>63,24</td></tr>
 <tr><td>BVS</td><td></td><td>91,90</td><td>88,90</td><td></td><td>106,00</td><td>59,57</td></tr>
 <tr><td>Brent Oil</td><td></td><td></td><td>85,50</td><td></td><td>100,90</td><td>62,85</td></tr>
@@ -34,6 +34,12 @@ class Posts(unittest.TestCase):
         self.assertEqual(r["ДП"], round((101.96 + 106 + 100.9 + 103) / 4, 2))
         self.assertEqual(r["date"], "16.11.2026")
         self.assertNotIn("А-92", r)  # лише 1 оператор — замало
+
+    def test_fuel_implausible_rejected(self):
+        bad = PAGE.replace("<th>Газ</th>", "<th>Газ</th><th>Х</th>").replace("<td>63,24</td>", "<td>163,24</td><td>1</td>")
+        shifted = PAGE.replace("<th>ДП</th><th>Газ</th>", "<th>Газ</th><th>ДП</th>")  # перепутані місцями колонки
+        with self.assertRaises(RuntimeError):
+            fixed.parse_fuel(shifted)
 
     def test_fuel_bad_page_raises(self):
         with self.assertRaises(RuntimeError):
@@ -80,7 +86,7 @@ class Run(unittest.TestCase):
 
     def test_due_window(self):
         self.assertTrue(fixed.due("silence", datetime(2026, 11, 17, 7, 5, tzinfo=timezone.utc))[0])      # 09:05 Київ
-        self.assertFalse(fixed.due("silence", datetime(2026, 11, 17, 9, 0, tzinfo=timezone.utc))[0])     # 11:00 — запізно
+        self.assertFalse(fixed.due("silence", datetime(2026, 11, 17, 7, 20, tzinfo=timezone.utc))[0])    # 09:20 — запізно
         self.assertFalse(fixed.due("holiday", datetime(2026, 11, 17, 2, 0, tzinfo=timezone.utc))[0])     # 04:00 — зарано
 
     def test_posts_once_per_day_and_respects_pause(self):

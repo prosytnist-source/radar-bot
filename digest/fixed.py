@@ -23,7 +23,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARDS = ROOT / "assets" / "cards"
 TZ = "Europe/Kyiv"
 TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0)}
-LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 40}  # хвилини: пізніше — пропускаємо
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 15}  # хвилини: пізніше — пропускаємо
 MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
 NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
 FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
@@ -111,16 +111,19 @@ def parse_fuel(page: str) -> dict:
     if hdr_i is None:
         raise RuntimeError("не знайдено таблицю цін")
     hdr = t.rows[hdr_i]
-    cols = {"А-95": next((i for i, h in enumerate(hdr) if h.replace(" ", "") == "А95"), None),
-            "А-92": next((i for i, h in enumerate(hdr) if h.replace(" ", "") == "А92"), None),
-            "ДП": hdr.index("ДП"), "Газ": next((i for i, h in enumerate(hdr) if h == "Газ"), None)}
+    # Шапка й рядки даних можуть мати різну кількість клітинок (порожні/об'єднані): тому рахуємо колонки від ПРАВОГО краю таблиці.
+    def from_right(pred):
+        i = next((i for i, h in enumerate(hdr) if pred(h.replace(" ", ""))), None)
+        return None if i is None else len(hdr) - 1 - i
+    cols = {"А-95": from_right(lambda h: h == "А95"), "А-92": from_right(lambda h: h == "А92"),
+            "ДП": from_right(lambda h: h == "ДП"), "Газ": from_right(lambda h: h == "Газ")}
     vals: dict[str, list[float]] = {k: [] for k, v in cols.items() if v is not None}
     for r in t.rows[hdr_i + 1:]:
-        for k, i in cols.items():
-            if i is None or i >= len(r):
+        for k, fr in cols.items():
+            if fr is None or len(r) - 1 - fr < 1:
                 continue
             try:
-                v = float(r[i].replace(",", "."))
+                v = float(r[len(r) - 1 - fr].replace(",", "."))
             except ValueError:
                 continue
             if 20 < v < 300:  # відсікаємо сміття
@@ -130,6 +133,10 @@ def parse_fuel(page: str) -> dict:
     out = {k: round(statistics.mean(v), 2) for k, v in vals.items() if len(v) >= 3}
     if "А-95" not in out or "ДП" not in out:
         raise RuntimeError("замало даних у таблиці")
+    # перевірка правдоподібності: при зсуві колонок краще не публікувати нічого, ніж неправду
+    a95, dp, gas = out["А-95"], out["ДП"], out.get("Газ")
+    if not (45 < a95 < 140 and 45 < dp < 160 and (gas is None or 20 < gas < min(a95, dp)) and ("А-92" not in out or out["А-92"] <= a95 + 0.5)):
+        raise RuntimeError(f"ціни виглядають неправдоподібно (А-95 {a95}, ДП {dp}, газ {gas}): можливо, змінилась таблиця")
     out["n"] = {k: len(v) for k, v in vals.items()}
     out["date"] = m.group(1) if m else ""
     return out

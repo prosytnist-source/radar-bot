@@ -1,0 +1,54 @@
+name: radar-silence
+# «Хвилина мовчання» — рівно о 09:00:00 за Києвом.
+# GitHub запускає за cron із запізненням (інколи 10–30 хв), тому запускаємо ЗАЗДАЛЕГІДЬ (08:15 і 08:40 за Києвом) і самі чекаємо до 09:00:00.
+# Другий запуск — страховка: якщо перший не стартував або впав, він опублікує; якщо перший уже опублікував — пропустить.
+# Час у UTC для зими (Київ = UTC+2). Навесні (літній час) зсунути cron на годину раніше: "15 5" і "40 5".
+on:
+  schedule:
+    - cron: "15 6 * * *"
+    - cron: "40 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "true = надіслати негайно, без очікування 09:00 (для перевірки)"
+        default: "false"
+concurrency:
+  group: radar-silence
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  silence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Чекати до 09:00:00 за Києвом
+        if: github.event.inputs.force != 'true'
+        run: |
+          T=$(TZ=Europe/Kyiv date -d "today 09:00:00" +%s)
+          N=$(date +%s)
+          D=$((T - N))
+          echo "до 09:00 лишилось $D с"
+          if [ "$D" -gt 0 ] && [ "$D" -le 3300 ]; then sleep "$D"; fi
+      - name: Оновити стан (пауза /stop, чи вже опубліковано)
+        run: git pull --rebase
+      - name: Пост
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+        run: |
+          F=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then F="--force"; fi
+          python -m digest.fixed --kind silence $F
+      - name: Зберегти стан
+        if: always()
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || (git commit -m "state: silence" && git pull --rebase && git push)
