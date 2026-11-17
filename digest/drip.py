@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import control, publish
+from . import control, deliver, publish
 from .state import State
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -95,7 +95,7 @@ def step(a, st: State, now: datetime) -> dict | None:
     if a.dry:
         return None
     try:
-        publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), e["html"], e.get("preview"))
+        deliver.send_entry(e, publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), st, now)
     except SystemExit as exc:
         print(f"✗ не надіслано: {exc}", file=sys.stderr)
         st.save_queue(q)  # лишаємо в черзі, спробуємо наступного разу
@@ -172,6 +172,13 @@ def loop(a, poll: float = 60.0) -> int:
                 pending.append((e, now))
             if getattr(a, "fixed", False):
                 fixed_tick(a, poll, end, last_try)
+            if getattr(a, "daily", False):
+                from . import poll, toprating
+                for name, fn in (("опитування", poll.tick), ("топ-рейтинг", toprating.tick)):
+                    try:
+                        print(f"[{name}]", fn(st, datetime.now(timezone.utc)))
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[{name}] збій: {exc}", file=sys.stderr)
             if getattr(a, "gen_every", 0):
                 from . import gen
                 print("[свіжа порція]", gen.tick(st, datetime.now(timezone.utc), a.gen_every))
@@ -194,6 +201,7 @@ def loop(a, poll: float = 60.0) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--gen-every", type=float, default=0, help="у безперервному режимі: раз на стільки хвилин (вдень) генерувати невелику свіжу порцію в чергу; 0 — вимкнено")
+    ap.add_argument("--daily", action="store_true", help="у безперервному режимі: щоденне опитування читачів і вечірній «Топ-рейтинг» о 21:00")
     ap.add_argument("--max-age", type=float, default=8.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
     ap.add_argument("--max-age-urgent", type=float, default=4.0, help="скільки годин у черзі живе гаряча новина (важливість ≥ 9)")
     ap.add_argument("--drop-before", help="UTC 'YYYY-MM-DDTHH:MM': прибрати з черги пости, створені раніше (безпечно лишати в команді: на пізніші пости не діє)")

@@ -128,3 +128,35 @@ def render_digest(d: dict, rs: list[Ranked], sources: dict[str, dict], now: date
     if d.get("watch"):
         parts += ["", f"<b>Що далі:</b> {html.escape(d['watch'], quote=False)}"]
     return "\n".join(parts)[:LIMIT]
+
+
+def chips(rs: list[Ranked], sources: dict[str, dict]) -> list[str]:
+    """Країни видань українською, без повторів (для підпису на картці)."""
+    seen: list[str] = []
+    for r in rs:
+        for i in r.cluster.items:
+            c = sources.get(i.source_id, {}).get("country", i.country)
+            n = COUNTRY_UK.get(c, c)
+            if n and n not in seen:
+                seen.append(n)
+    return seen
+
+
+def render_top(d: dict, rs: list[Ranked], sources: dict[str, dict], topic: dict, now: datetime, from_votes: bool, tz: str = "Europe/Kyiv") -> str:
+    """Рубрика «Топ-рейтинг»: огляд видань на тему дня. Про вибір читачів пишемо лише якщо він справжній (за голосами)."""
+    link = {}
+    for r in rs:
+        for i in sorted(r.cluster.items, key=lambda x: x.published, reverse=True):
+            link.setdefault(i.source_id, i)
+    flags = _flags([sources.get(k, {}) for k in link])
+    parts = [f"<b>Топ-рейтинг · {html.escape(topic['title'], quote=False)}</b>", f"<i>{flags} · {now.astimezone(ZoneInfo(tz)):%d.%m}</i>", "", html.escape(d["headline"], quote=False), ""]
+    for p in d["points"]:
+        it = link.get(p["by"])
+        src = sources.get(p["by"], {})
+        tail = f" ({_flag(src)} <a href=\"{html.escape(it.link, quote=True)}\">{html.escape(it.source_name, quote=False)}</a>)" if it else ""
+        parts.append(f"• {html.escape(p['uk'], quote=False)}{tail}")
+    if d.get("watch"):
+        parts += ["", f"<b>Що далі:</b> {html.escape(d['watch'], quote=False)}"]
+    if from_votes:
+        parts += ["", "<i>Тема за вашим вибором в опитуванні каналу.</i>"]
+    return "\n".join(parts)[:LIMIT]

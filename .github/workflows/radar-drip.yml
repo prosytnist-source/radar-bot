@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Бібліотека для власних карток
+        run: pip install --quiet pillow
       - name: Подача (безперервно)
         env:
           PYTHONUNBUFFERED: "1"
@@ -26,4 +28,4 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
-        run: python -m digest.drip --loop 55 --git --watch --fixed --gen-every 60 --drop-before 2026-11-17T04:40
+        run: python -m digest.drip --loop 55 --git --watch --fixed --gen-every 60 --daily --drop-before 2026-11-17T04:40

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import pathlib
 import sys
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from .cluster import Cluster, cluster_items
 from .fetch import fetch_all, parse_feed
 from .rank import WINDOWS_HOURS, rank
-from . import control, focus, llm, polish, publish, state as stmod, synth, telegram_fmt
+from . import control, deliver, focus, images, llm, polish, publish, state as stmod, synth, telegram_fmt
 from .report import render
 
 # Бюджет найпотужнішої моделі: ранок 2, обід 1, вечір 2, підсумок дня 1 (квота скидається ~10:00 за Києвом).
@@ -244,12 +245,17 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
                 print(f"  ✎ вичитано: {sy['headline']['uk'][:60]}", file=sys.stderr)
     out = ROOT / "drafts" / f"{now:%Y%m%d-%H%M}-{args.window}"
     out.mkdir(parents=True, exist_ok=True)
+    used = images.Used(st)
+    taken = {images.key(e["preview"]) for e in st.load_queue() if e.get("preview")}  # фото, що вже чекають у черзі
     for n, (r, s) in enumerate(chosen, 1):
         for lang in langs:
             (out / f"{n:02d}-{lang}.html").write_text(telegram_fmt.render_post(r, s, by_id, now, lang, tz), encoding="utf-8")
-        prev = pick_preview(r, by_id)
-        (out / f"{n:02d}-{langs[0]}.json").write_text(json.dumps({"preview": prev, "headline": s["headline"]["uk"]}, ensure_ascii=False), encoding="utf-8")
-        print(f"\n[{n}] {s['headline']['uk']}  (важливість {s['importance']}, {s['category']}, {s['region']}){' 🖼' if prev else ''}")
+        pk = pick_photo(r, by_id, used, taken)
+        if pk:
+            taken.add(images.key(pk["image"]))
+        meta = {"preview": pk["image"] if pk else None, "credit": pk["credit"] if pk else None, "headline": s["headline"]["uk"], "chips": telegram_fmt.chips([r], by_id)}
+        (out / f"{n:02d}-{langs[0]}.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+        print(f"\n[{n}] {s['headline']['uk']}  (важливість {s['importance']}, {s['category']}, {s['region']}){' 🖼' if pk else ' 🪧'}")
     print(f"\nЧернетки: {out}", file=sys.stderr)
     if args.enqueue:
         enqueue_chosen(chosen, out, langs[0], st, now)
@@ -258,12 +264,17 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
     return 0
 
 
-def pick_preview(r, by_id) -> str | None:
-    """Стаття, чия ілюстрація піде над постом: свіжа, з картинкою в RSS і лише з джерела, позначеного image_ok у sources.json."""
+def pick_photo(r, by_id, used=None, taken=None) -> dict | None:
+    """Фото для посту: свіже, з RSS, лише з видань image_ok (без державних), і таке, що ще не траплялось у каналі.
+    Повертає {image, link, credit} або None (тоді піде власна картка РАДАР)."""
     for it in sorted(r.cluster.items, key=lambda i: i.published, reverse=True):
         src = by_id.get(it.source_id, {})
-        if it.image and src.get("image_ok") and not src.get("caution") and src.get("type") not in ("state", "independent_exile"):
-            return it.link
+        if not (it.image and src.get("image_ok")) or src.get("caution") or src.get("type") in ("state", "independent_exile"):
+            continue
+        if (used and used.has(it.image)) or (taken and images.key(it.image) in taken):
+            continue
+        credit = f'<i>Фото: <a href="{html.escape(it.link, quote=True)}">{html.escape(it.source_name, quote=False)}</a></i>'
+        return {"image": it.image, "link": it.link, "credit": credit}
     return None
 
 
@@ -274,8 +285,13 @@ def enqueue_chosen(chosen, out, lang, st, now) -> None:
             print(f"  (повтор за змістом, пропущено: {s['headline']['uk'][:50]})", file=sys.stderr)
             continue
         meta = json.loads((out / f"{n:02d}-{lang}.json").read_text(encoding="utf-8"))
-        q.append({"created": now.isoformat(), "importance": s["importance"], "headline": s["headline"]["uk"], "preview": meta.get("preview"),
-                  "html": (out / f"{n:02d}-{lang}.html").read_text(encoding="utf-8")})
+        entry = {"created": now.isoformat(), "importance": s["importance"], "headline": s["headline"]["uk"], "preview": meta.get("preview"),
+                 "html": (out / f"{n:02d}-{lang}.html").read_text(encoding="utf-8")}
+        if meta.get("preview"):
+            entry["credit"] = meta.get("credit")
+        else:  # фото немає: пост піде з власною карткою
+            entry["card"] = {"title": s["headline"]["uk"], "subtitle": "Світ про Україну", "chips": meta.get("chips") or [], "kind": "news"}
+        q.append(entry)
         st.add(r, now, s["headline"]["uk"])  # одразу вважаємо «баченим», щоб наступні запуски не додали те саме
     st.save_queue(q)
     print(f"У чергу додано: {len(chosen)}; усього в черзі: {len(q)}", file=sys.stderr)
@@ -290,7 +306,10 @@ def publish_chosen(chosen, out, lang, st, now) -> None:
         f = out / f"{n:02d}-{lang}.html"
         meta = json.loads((out / f"{n:02d}-{lang}.json").read_text(encoding="utf-8"))
         try:
-            publish.send(token, chat, f.read_text(encoding="utf-8"), meta.get("preview"))
+            entry = {"html": f.read_text(encoding="utf-8"), "preview": meta.get("preview"), "credit": meta.get("credit")}
+            if not entry["preview"]:
+                entry["card"] = {"title": s["headline"]["uk"], "subtitle": "Світ про Україну", "chips": meta.get("chips") or [], "kind": "news"}
+            deliver.send_entry(entry, token, chat, st, now)
         except SystemExit as exc:  # помилка Telegram: не зупиняємо решту й не позначаємо як опубліковане
             print(f"  ✗ не надіслано [{n}]: {exc}", file=sys.stderr)
             continue
