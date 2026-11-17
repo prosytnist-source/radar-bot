@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from . import card, deliver, focus, llm, poll, publish, synth, telegram_fmt
-from .cluster import Cluster, cluster_items
+from .cluster import Cluster, cluster_items, tokens
 from .fetch import Item, fetch_all
 from .rank import rank
 from .state import State
@@ -36,6 +36,12 @@ def _kyiv(now: datetime) -> datetime:
 
 
 def matches(topic: dict, it: Item, by_id: dict) -> bool:
+    if topic["kind"] == "story":  # історія дня: те саме посилання або достатньо спільних слів із заголовками, на яких писали пост
+        if it.link in topic.get("links", []):
+            return True
+        have = set(topic.get("tokens", []))
+        inter = set(tokens(it.title)) & have
+        return len(inter) >= 3 and len(inter) / max(len(have), 1) >= 0.25
     if topic["kind"] == "country":
         c = by_id.get(it.source_id, {}).get("country") or it.country
         return c in topic["countries"]
@@ -64,9 +70,9 @@ def record_stats(st: State, now: datetime, counts: dict[str, int]) -> dict[str, 
     return tot
 
 
-def order_topics(topics: list[dict], votes: dict[str, int], own: dict[str, int], min_votes: int, last: str | None) -> tuple[list[dict], bool]:
+def order_topics(topics: list[dict], votes: dict[str, int], own: dict[str, int], min_votes: int, last: str | None, voters: int | None = None) -> tuple[list[dict], bool]:
     """Теми від найпопулярнішої. Голосів досить — за голосами (не повторюємо вчорашню тему, якщо є інша з голосами); інакше за власною статистикою."""
-    total = sum(votes.values())
+    total = sum(votes.values()) if voters is None else voters
     if total >= min_votes:
         ranked = sorted(topics, key=lambda t: -votes.get(t["id"], 0))
         voted = [t for t in ranked if votes.get(t["id"], 0) > 0]
@@ -86,7 +92,12 @@ def build(topic: dict, items: list[Item], by_id: dict, now: datetime):
 
 
 def generate(topic: dict, rs, by_id: dict, key: str, model: str, fallback: str) -> dict | None:
-    scope = ", ".join(topic.get("countries", [])) if topic["kind"] == "country" else "theme: " + ", ".join(topic["stems"][:6])
+    if topic["kind"] == "story":
+        scope = "one story of the day"
+    elif topic["kind"] == "country":
+        scope = ", ".join(topic.get("countries", []))
+    else:
+        scope = "theme: " + ", ".join(topic["stems"][:6])
     system = TOP_SYSTEM.format(title=topic["title"], scope=scope)
     prompt = synth.build_digest_prompt(rs, by_id)
     for _ in range(2):
@@ -104,15 +115,16 @@ def generate(topic: dict, rs, by_id: dict, key: str, model: str, fallback: str) 
 
 
 def run(st: State, now: datetime, items: list[Item], by_id: dict, cfg: dict, key: str, sender=None, model: str = llm.DEFAULT_MODEL, fallback: str = llm.FALLBACK_MODEL) -> str:
-    topics = cfg["topics"]
-    counts = {t["id"]: sum(1 for i in items if matches(t, i, by_id)) for t in topics}
+    static = cfg["topics"]
+    topics = static + poll.dynamic_topics(st, now)  # плюс «історії дня» з останніх опитувань
+    counts = {t["id"]: sum(1 for i in items if matches(t, i, by_id)) for t in static}
     own = record_stats(st, now, counts)
     votes = poll.weekly(st, now)
     try:
         last = json.loads((st.dir / "top.json").read_text(encoding="utf-8")).get("topic")
     except (OSError, json.JSONDecodeError):
         last = None
-    order, from_votes = order_topics(topics, votes, own, cfg["poll"].get("min_votes", 3), last)
+    order, from_votes = order_topics(topics, votes, own, cfg["poll"].get("min_votes", 3), last, poll.voters(st, now))
     for t in order[:4]:
         rs = build(t, items, by_id, now)
         if len(rs) < 2:

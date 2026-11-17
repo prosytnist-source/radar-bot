@@ -1,21 +1,158 @@
 {
   "poll": {
     "question": "Які теми про Україну у світових медіа вам цікаві? (можна обрати кілька)",
-    "open_from": [10, 0],
-    "open_until": [18, 0],
-    "close_at": [20, 50],
-    "min_votes": 3
+    "open_from": [
+      10,
+      0
+    ],
+    "open_until": [
+      18,
+      0
+    ],
+    "close_at": [
+      20,
+      50
+    ],
+    "min_votes": 3,
+    "dynamic": 3
   },
-  "_note": "Закритий перелік: читачі обирають лише з нього, тож «брудних» або чужих для каналу тем у голосуванні не буває. Типи: country — за країною видання; theme — за словами в заголовку чи анонсі.",
+  "_note": "Закритий перелік: читачі обирають лише з нього. У голосування щодня йдуть 6 постійних тем (країни й регіони) і до 3 «історій дня» з постів, що вийшли за добу. Теми з poll:false (kind=theme) у голосуванні не показуються, але враховуються у власній статистиці каналу.",
   "topics": [
-    {"id": "usa", "option": "США й Канада: що пишуть про Україну", "title": "США й Канада", "kind": "country", "countries": ["USA", "Canada"]},
-    {"id": "europe", "option": "Європа: Німеччина, Франція, Британія та ін.", "title": "Європа", "kind": "country", "countries": ["Germany", "France", "UK", "EU", "Italy", "Poland", "Ireland", "Switzerland"]},
-    {"id": "china", "option": "Китай: державні й незалежні видання", "title": "Китай", "kind": "country", "countries": ["China", "Hong Kong / China"]},
-    {"id": "asia", "option": "Японія, Індія та решта Азії", "title": "Японія, Індія й Азія", "kind": "country", "countries": ["Japan", "India", "South Korea", "Singapore", "Pakistan", "Australia"]},
-    {"id": "mideast", "option": "Туреччина й Близький Схід", "title": "Туреччина й Близький Схід", "kind": "country", "countries": ["Turkey", "Qatar", "Israel", "Saudi Arabia"]},
-    {"id": "russia", "option": "Росія: незалежні медіа у вигнанні", "title": "Росія очима незалежних медіа", "kind": "country", "countries": ["Latvia / Russia", "Netherlands / Russia"]},
-    {"id": "war", "option": "Війна й безпека", "title": "Війна й безпека", "kind": "theme", "stems": ["strike", "drone", "missile", "front", "offensive", "attack", "troops", "military", "weapon", "defen", "army", "bomb", "air defence", "nato"]},
-    {"id": "peace", "option": "Переговори й дипломатія", "title": "Переговори й дипломатія", "kind": "theme", "stems": ["talks", "peace", "ceasefire", "negotiat", "summit", "diplomat", "deal", "envoy", "meeting"]},
-    {"id": "economy", "option": "Економіка, санкції й допомога", "title": "Економіка, санкції й допомога", "kind": "theme", "stems": ["sanction", "econom", "aid", "loan", "fund", "reparation", "asset", "price", "energy", "gas", "grain", "reconstruction", "budget", "billion"]}
+    {
+      "id": "usa",
+      "option": "США й Канада: що пишуть про Україну",
+      "title": "США й Канада",
+      "kind": "country",
+      "countries": [
+        "USA",
+        "Canada"
+      ]
+    },
+    {
+      "id": "europe",
+      "option": "Європа: Німеччина, Франція, Британія та ін.",
+      "title": "Європа",
+      "kind": "country",
+      "countries": [
+        "Germany",
+        "France",
+        "UK",
+        "EU",
+        "Italy",
+        "Poland",
+        "Ireland",
+        "Switzerland"
+      ]
+    },
+    {
+      "id": "china",
+      "option": "Китай: державні й незалежні видання",
+      "title": "Китай",
+      "kind": "country",
+      "countries": [
+        "China",
+        "Hong Kong / China"
+      ]
+    },
+    {
+      "id": "asia",
+      "option": "Японія, Індія та решта Азії",
+      "title": "Японія, Індія й Азія",
+      "kind": "country",
+      "countries": [
+        "Japan",
+        "India",
+        "South Korea",
+        "Singapore",
+        "Pakistan",
+        "Australia"
+      ]
+    },
+    {
+      "id": "mideast",
+      "option": "Туреччина й Близький Схід",
+      "title": "Туреччина й Близький Схід",
+      "kind": "country",
+      "countries": [
+        "Turkey",
+        "Qatar",
+        "Israel",
+        "Saudi Arabia"
+      ]
+    },
+    {
+      "id": "russia",
+      "option": "Росія: незалежні медіа у вигнанні",
+      "title": "Росія очима незалежних медіа",
+      "kind": "country",
+      "countries": [
+        "Latvia / Russia",
+        "Netherlands / Russia"
+      ]
+    },
+    {
+      "id": "war",
+      "option": "Війна й безпека",
+      "title": "Війна й безпека",
+      "kind": "theme",
+      "stems": [
+        "strike",
+        "drone",
+        "missile",
+        "front",
+        "offensive",
+        "attack",
+        "troops",
+        "military",
+        "weapon",
+        "defen",
+        "army",
+        "bomb",
+        "air defence",
+        "nato"
+      ],
+      "poll": false
+    },
+    {
+      "id": "peace",
+      "option": "Переговори й дипломатія",
+      "title": "Переговори й дипломатія",
+      "kind": "theme",
+      "stems": [
+        "talks",
+        "peace",
+        "ceasefire",
+        "negotiat",
+        "summit",
+        "diplomat",
+        "deal",
+        "envoy",
+        "meeting"
+      ],
+      "poll": false
+    },
+    {
+      "id": "economy",
+      "option": "Економіка, санкції й допомога",
+      "title": "Економіка, санкції й допомога",
+      "kind": "theme",
+      "stems": [
+        "sanction",
+        "econom",
+        "aid",
+        "loan",
+        "fund",
+        "reparation",
+        "asset",
+        "price",
+        "energy",
+        "gas",
+        "grain",
+        "reconstruction",
+        "budget",
+        "billion"
+      ],
+      "poll": false
+    }
   ]
 }

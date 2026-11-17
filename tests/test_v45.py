@@ -93,7 +93,7 @@ class Poll(unittest.TestCase):
         return api, calls
 
     def test_cfg_valid(self):
-        self.assertLessEqual(len(CFG["topics"]), 10)
+        self.assertLessEqual(len([x for x in CFG["topics"] if x.get("poll", True)]) + CFG["poll"]["dynamic"], 10)
         for t in CFG["topics"]:
             self.assertLessEqual(len(t["option"]), 100)
 
@@ -107,7 +107,8 @@ class Poll(unittest.TestCase):
             self.assertIn("закрито", poll.tick(st, late, CFG, api, "t", "c"))
             self.assertEqual(poll.tick(st, late + timedelta(minutes=1), CFG, api, "t", "c"), "рано")  # сьогодні вже було
         w = poll.weekly(st, late)
-        self.assertEqual(w[CFG["topics"][3]["id"]], 3)
+        order = [json.loads(c[1]["options"]) for c in calls if c[0] == "sendPoll"][0]
+        self.assertEqual(sum(w.values()), sum(range(len(order))))  # голоси записані за варіантами в порядку, у якому їх показали
         self.assertEqual([c[0] for c in calls].count("sendPoll"), 1)
 
     def test_not_before_10(self):
@@ -120,6 +121,52 @@ class Poll(unittest.TestCase):
         st = st_tmp()
         st.set_paused(True)
         self.assertEqual(poll.tick(st, NOW, CFG), "пауза")
+
+
+class Dynamic(unittest.TestCase):
+    def _state_with_posts(self):
+        st = st_tmp()
+        for i, h in enumerate(["Україна та Росія завдали ударів по мостах", "Переговори в Женеві відкрилися", "Французькі військові діють в Україні", "Удари по мостах: нові подробиці"]):
+            at = NOW - timedelta(hours=i + 1)
+            st.published.append({"t": at.isoformat(), "links": [f"https://x/{i}"], "tokens": ["bridge", "strike", "kyiv", f"w{i}"], "headline": h})
+            st.log_event("sent", h, at)
+        st.pub_file.write_text(json.dumps(st.published, ensure_ascii=False), encoding="utf-8")
+        return st
+
+    def test_options_static_plus_stories_deduped_and_shuffled_by_day(self):
+        st = self._state_with_posts()
+        opts, dyn = poll.build_options(st, NOW, CFG)
+        texts = [o["text"] for o in opts]
+        self.assertEqual(len(dyn), 3)  # 4 постів, але два — про мости: лишається 3 історії
+        self.assertEqual(sum(1 for t in texts if t.startswith("Історія дня")), 3)
+        self.assertEqual(len(opts), 6 + 3)
+        self.assertTrue(all(len(t) <= 100 for t in texts))
+        again, _ = poll.build_options(st, NOW + timedelta(minutes=5), CFG)
+        self.assertEqual([o["id"] for o in again], [o["id"] for o in opts])  # у межах дня порядок той самий
+        nextday, _ = poll.build_options(st, NOW + timedelta(days=1), CFG)
+        self.assertNotEqual([o["id"] for o in nextday][:6], [o["id"] for o in opts][:6])
+
+    def test_themes_not_in_poll(self):
+        opts, _ = poll.build_options(st_tmp(), NOW, CFG)
+        self.assertNotIn("war", [o["id"] for o in opts])
+
+    def test_story_matching_and_voters(self):
+        topic = {"id": "s", "title": "x", "kind": "story", "links": ["https://x/0"], "tokens": ["bridge", "strike", "kyiv", "crimea"]}
+        by_id = {}
+        self.assertTrue(toprating.matches(topic, Item("a", "A", "t", "https://x/0", "", NOW), by_id))
+        self.assertTrue(toprating.matches(topic, Item("b", "B", "Strike on Crimea bridge near Kyiv", "https://y", "", NOW), by_id))
+        self.assertFalse(toprating.matches(topic, Item("b", "B", "Budget vote in Paris", "https://y", "", NOW), by_id))
+        st = st_tmp()
+        poll._save(st, {"days": {"2026-11-17": {"counts": {"china": 1, "usa": 1, "war": 1}, "total": 1}}})
+        self.assertEqual(poll.voters(st, NOW), 1)  # одна людина, хоч обрала три варіанти
+        o, fv = toprating.order_topics(CFG["topics"], {"china": 1, "usa": 1, "war": 1}, {"war": 5}, 3, None, voters=1)
+        self.assertFalse(fv)  # голосів-людей замало: тема за власною статистикою
+
+    def test_dynamic_topics_from_recent_days(self):
+        st = st_tmp()
+        poll._save(st, {"days": {"2026-11-17": {"counts": {}, "total": 2, "dynamic": {"story-2026-11-17-1": {"title": "Т", "links": ["l"], "tokens": ["a"]}}},
+                                 "2026-11-10": {"counts": {}, "total": 2, "dynamic": {"story-2026-11-10-1": {"title": "Старе", "links": [], "tokens": []}}}}})
+        self.assertEqual([t["id"] for t in poll.dynamic_topics(st, NOW)], ["story-2026-11-17-1"])
 
 
 class Top(unittest.TestCase):
