@@ -24,11 +24,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 TZ = "Europe/Kyiv"
 LIMIT = 3900  # Telegram: до 4096 символів тексту повідомлення
 KEEP_HOURS = 40
-MAX_TRIES = 3
+MAX_TRIES = 4
 
 
 def load_cfg() -> dict:
-    cfg = {"mode": "preview", "at": [20, 0], "until": [23, 0], "min_outlets": 3, "min_countries": 3, "max_outlets": 5, "min_text": 800, "collect_every": 60, "retry_minutes": 30}
+    cfg = {"mode": "preview", "at": [20, 0], "until": [23, 20], "min_outlets": 3, "min_countries": 3, "max_outlets": 5, "min_text": 800, "collect_every": 60, "retry_minutes": 15}
     try:
         cfg.update(json.loads((ROOT / "evening.json").read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError):
@@ -285,24 +285,35 @@ def fit(d: dict, texts: dict[str, dict], now: datetime, limit: int = LIMIT) -> s
 
 
 # ---------- запуск ----------
-def generate(texts: dict[str, dict], ecfg: dict, key: str, model: str | None = None, fallback: str | None = None, call=llm.generate_json) -> dict:
+def generate(texts: dict[str, dict], ecfg: dict, key: str, model: str | None = None, fallback: str | None = None, call=llm.generate_json, sleep=None) -> dict:
+    import time
+    sleep = sleep or time.sleep
     model = model or ecfg.get("model") or llm.DEFAULT_MODEL
     fallback = fallback or llm.FALLBACK_MODEL
     system, prompt = system_prompt(ecfg), build_prompt(texts)
     last = None
-    for attempt in range(2):
+    waits = 0
+    attempt = 0
+    while attempt < 2:
         try:
             raw = call(system, prompt if attempt == 0 else prompt + "\n\nMake it SHORTER: about 2500 characters in total.", model, key)
         except llm.LLMError as exc:
-            if llm.is_busy(exc) and model != fallback:
-                print(f"  ↪ модель {model} недоступна, переходжу на {fallback}", file=sys.stderr)
-                model = fallback
-                continue
+            if llm.is_busy(exc):
+                if model != fallback:
+                    print(f"  ↪ модель {model} недоступна, переходжу на {fallback}", file=sys.stderr)
+                    model = fallback
+                    continue
+                if waits < 4:  # перевантаження зазвичай коротке: чекаємо й пробуємо знову
+                    waits += 1
+                    print(f"  … {model} перевантажена, чекаю {30 * waits} с", file=sys.stderr)
+                    sleep(30 * waits)
+                    continue
             raise
         try:
             return parse(raw, texts)
         except BadReview as exc:
             last = exc
+            attempt += 1
             print(f"  ✗ відповідь не пройшла перевірку: {exc}", file=sys.stderr)
     raise last or BadReview("порожня відповідь")
 

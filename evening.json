@@ -1,11 +1,17 @@
 {
   "mode": "preview",
-  "at": [20, 0],
-  "until": [23, 0],
+  "at": [
+    20,
+    0
+  ],
+  "until": [
+    23,
+    20
+  ],
   "min_outlets": 3,
   "min_countries": 3,
   "max_outlets": 5,
   "min_text": 800,
   "collect_every": 60,
-  "retry_minutes": 30
+  "retry_minutes": 15
 }

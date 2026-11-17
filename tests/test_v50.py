@@ -77,6 +77,26 @@ class Parse(unittest.TestCase):
             evening.parse(good(same_event=False), texts_for_test())
 
 
+class Busy(unittest.TestCase):
+    def test_retries_on_503_then_succeeds(self):
+        n = {"i": 0}
+        def call(s, p, m, k):
+            n["i"] += 1
+            if n["i"] <= 3:
+                raise evening.llm.LLMError("HTTP 503: high demand")
+            return good()
+        waits = []
+        d = evening.generate(texts_for_test(), {}, "k", call=call, sleep=waits.append)
+        self.assertEqual(len(d["views"]), 3)
+        self.assertEqual(waits, [30, 60])  # перша 503 → запасна модель без очікування
+
+    def test_gives_up_after_waits(self):
+        def call(s, p, m, k):
+            raise evening.llm.LLMError("HTTP 503: high demand")
+        with self.assertRaises(evening.llm.LLMError):
+            evening.generate(texts_for_test(), {}, "k", call=call, sleep=lambda s: None)
+
+
 class Render(unittest.TestCase):
     def test_fit_trims_to_limit(self):
         texts = texts_for_test()
@@ -132,9 +152,9 @@ class Tick(unittest.TestCase):
             with mock.patch.object(evening, "_fetch_focus", lambda: ([], {}, {})), mock.patch.object(evening, "run", lambda *a, **k: "немає теми"), mock.patch.object(evening.llm, "load_key", lambda: "k"):
                 evening.tick(st, NOW, cfg)
                 self.assertEqual(evening.tick(st, NOW + timedelta(minutes=5), cfg), "чекаю наступної спроби")
-                evening.tick(st, NOW + timedelta(minutes=35), cfg)
-                evening.tick(st, NOW + timedelta(minutes=70), cfg)
-                self.assertEqual(evening.tick(st, NOW + timedelta(minutes=105), cfg), "сьогодні спроби вичерпано")
+                for m in (20, 40, 60):
+                    evening.tick(st, NOW + timedelta(minutes=m), cfg)
+                self.assertEqual(evening.tick(st, NOW + timedelta(minutes=80), cfg), "сьогодні спроби вичерпано")
 
 
 class Wipe(unittest.TestCase):
