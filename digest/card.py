@@ -7,7 +7,7 @@ import pathlib
 
 W, H = 1280, 720
 FONTS = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf", "/Library/Fonts/Arial Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"]
-ACCENT = {"news": (232, 142, 42), "poll": (74, 158, 255), "top": (122, 201, 134)}
+ACCENT = {"news": (232, 142, 42), "poll": (74, 158, 255), "top": (122, 201, 134), "evening": (176, 124, 255)}
 
 
 def available() -> bool:

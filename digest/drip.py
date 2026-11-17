@@ -179,6 +179,13 @@ def loop(a, poll: float = 60.0) -> int:
                         print(f"[{name}]", fn(st, datetime.now(timezone.utc)))
                     except Exception as exc:  # noqa: BLE001
                         print(f"[{name}] збій: {exc}", file=sys.stderr)
+            if getattr(a, "evening", False):
+                from . import evening
+                for name, fn in (("збір дня", evening.collect_tick), ("вечірній огляд", evening.tick)):
+                    try:
+                        print(f"[{name}]", fn(st, datetime.now(timezone.utc)))
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[{name}] збій: {exc}", file=sys.stderr)
             if getattr(a, "gen_every", 0):
                 from . import gen
                 print("[свіжа порція]", gen.tick(st, datetime.now(timezone.utc), a.gen_every))
@@ -200,6 +207,7 @@ def loop(a, poll: float = 60.0) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--evening", action="store_true", help="щодня збирати матеріали й ввечері випускати один аналітичний огляд (замість потоку коротких постів)")
     ap.add_argument("--gen-every", type=float, default=0, help="у безперервному режимі: раз на стільки хвилин (вдень) генерувати невелику свіжу порцію в чергу; 0 — вимкнено")
     ap.add_argument("--daily", action="store_true", help="у безперервному режимі: щоденне опитування читачів і вечірній «Топ-рейтинг» о 21:00")
     ap.add_argument("--max-age", type=float, default=8.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
