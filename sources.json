@@ -184,8 +184,9 @@
       "feed": "http://www.chinadaily.com.cn/rss/world_rss.xml",
       "country": "China",
       "type": "state",
-      "enabled": true,
-      "caution": "державні медіа КНР"
+      "enabled": false,
+      "caution": "державні медіа КНР",
+      "note": "вимкнено 17.11: 404"
     },
     {
       "id": "globaltimes",
@@ -202,7 +203,8 @@
       "feed": "https://english.kyodonews.net/rss/news.xml",
       "country": "Japan",
       "type": "commercial",
-      "enabled": true
+      "enabled": false,
+      "note": "вимкнено 17.11: 404"
     },
     {
       "id": "nikkei",
@@ -218,8 +220,9 @@
       "feed": "https://www.trtworld.com/rss",
       "country": "Turkey",
       "type": "state",
-      "enabled": true,
-      "caution": "державне мовлення Туреччини"
+      "enabled": false,
+      "caution": "державне мовлення Туреччини",
+      "note": "вимкнено 17.11: 404"
     },
     {
       "id": "dailysabah",
@@ -300,7 +303,8 @@
       "feed": "https://www.swissinfo.ch/eng/rss/top-news",
       "country": "Switzerland",
       "type": "public",
-      "enabled": true
+      "enabled": false,
+      "note": "вимкнено 17.11: 404"
     },
     {
       "id": "rte",
@@ -372,7 +376,8 @@
       "feed": "http://www.koreaherald.com/common/rss_xml.php?ct=102",
       "country": "South Korea",
       "type": "commercial",
-      "enabled": true
+      "enabled": false,
+      "note": "вимкнено 17.11: XML зламаний"
     },
     {
       "id": "hindu",
@@ -404,7 +409,8 @@
       "feed": "https://www.timesofisrael.com/feed/",
       "country": "Israel",
       "type": "commercial",
-      "enabled": true
+      "enabled": false,
+      "note": "вимкнено 17.11: 403 для GitHub"
     },
     {
       "id": "arabnews",
@@ -412,8 +418,9 @@
       "feed": "https://www.arabnews.com/rss.xml",
       "country": "Saudi Arabia",
       "type": "commercial",
-      "enabled": true,
-      "caution": "фінансується саудівськими інвесторами, близьке до влади"
+      "enabled": false,
+      "caution": "фінансується саудівськими інвесторами, близьке до влади",
+      "note": "вимкнено 17.11: 403 для GitHub"
     }
   ],
   "focus": {
