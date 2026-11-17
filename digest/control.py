@@ -32,7 +32,7 @@ def sync(state: State, token: str, owner: str) -> list[str]:
             reply = "▶️ Канал працює."
         elif text == "/status":
             reply = "⏸ Пауза" if state.paused() else "▶️ Працює"
-            reply += f" · опубліковано за 3 доби: {len(state.published)}"
+            reply += f" · у черзі: {len(state.load_queue())} · опубліковано за 3 доби: {len(state.published)}"
         if reply:
             done.append(text)
             publish.api("sendMessage", token, {"chat_id": m["chat"]["id"], "text": reply})

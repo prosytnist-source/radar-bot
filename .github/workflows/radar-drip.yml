@@ -1,33 +1,27 @@
 name: radar-drip
-# Крапельна подача: не більше одного допису за запуск. GitHub може запізнюватися на кілька хвилин — це нормально.
+# Безперервна подача: запуск живе до ~55 хв і кожну хвилину перевіряє чергу, тож запізнення GitHub у кілька хвилин нічого не псують.
+# Cron лише «підстраховує» старт; два запуски одночасно не працюють (concurrency), наступний чекає завершення попереднього.
 on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch: {}
 concurrency:
-  group: radar-state
+  group: radar-drip
   cancel-in-progress: false
 permissions:
   contents: write
 jobs:
   drip:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 58
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Подача
+      - name: Подача (безперервно)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
-        run: python -m digest.drip
-      - name: Зберегти стан
-        if: always()
-        run: |
-          git config user.name "radar-bot"
-          git config user.email "radar-bot@users.noreply.github.com"
-          git add state
-          git diff --cached --quiet || (git commit -m "state: drip" && git pull --rebase && git push)
+        run: python -m digest.drip --loop 55 --git

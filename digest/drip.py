@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import subprocess
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -35,14 +37,8 @@ def choose(q: list[dict], now: datetime, last: datetime | None, tz: str = "Europ
     return sorted(q, key=lambda e: (-e["importance"], e["created"]))[0]
 
 
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
-    ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
-    ap.add_argument("--dry", action="store_true", help="лише показати, що було б надіслано")
-    a = ap.parse_args(argv)
-    now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
-    st = State(ROOT / "state")
+def step(a, st: State, now: datetime) -> dict | None:
+    """Один цикл подачі: команди керування, вибір допису, надсилання. Повертає надісланий допис (або None)."""
     try:
         control.sync(st, publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"))
     except SystemExit:
@@ -51,7 +47,7 @@ def main(argv=None) -> int:
         print(f"(команди керування недоступні: {exc})", file=sys.stderr)
     if st.paused():
         print("⏸ Пауза (/stop): нічого не публікую.")
-        return 0
+        return None
     full = st.load_queue()
     q = [e for e in full if now - datetime.fromisoformat(e["created"]) <= timedelta(hours=a.max_age)]
     if not a.dry:
@@ -60,22 +56,97 @@ def main(argv=None) -> int:
                 st.log_event("expired", e["headline"], now)
     e = choose(q, now, st.last_sent())
     if not e:
-        print(f"Черга: {len(q)}; зараз нічого публікувати (інтервал, ніч або порожньо).")
+        last = st.last_sent()
+        wait = ""
+        if q and last:
+            left = interval_minutes(len(q)) - (now - last).total_seconds() / 60
+            if left > 0:
+                wait = f"; наступний через ~{left:.0f} хв"
+        print(f"Черга: {len(q)}; зараз нічого публікувати (інтервал, ніч або порожньо){wait}. Остання публікація: {last.isoformat(timespec='minutes') if last else 'ніколи'}.")
         if not a.dry:
             st.save_queue(q)
-        return 0
+        return None
     print(f"Публікую: {e['headline']} (важливість {e['importance']}); у черзі лишиться {len(q) - 1}")
-    if not a.dry:
+    if a.dry:
+        return None
+    try:
+        publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), e["html"], e.get("preview"))
+    except SystemExit as exc:
+        print(f"✗ не надіслано: {exc}", file=sys.stderr)
+        st.save_queue(q)  # лишаємо в черзі, спробуємо наступного разу
+        return None
+    q.remove(e)
+    st.set_last_sent(now)
+    st.log_event("sent", e["headline"], now)
+    st.save_queue(q)
+    return e
+
+
+# ---------- безперервний режим (GitHub Actions) ----------
+def git(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+
+
+def apply_sent(st: State, sent: list[tuple[dict, datetime]]) -> None:
+    """Повторно застосувати вже надіслані дописи до свіжого стану (після git reset): прибрати з черги, оновити «останню публікацію»."""
+    if not sent:
+        return
+    heads = {e["headline"] for e, _ in sent}
+    st.save_queue([x for x in st.load_queue() if x["headline"] not in heads])
+    st.set_last_sent(max(t for _, t in sent))
+    for e, t in sent:
+        st.log_event("sent", e["headline"], t)
+
+
+def push_state() -> bool:
+    git("add", "state")
+    if git("diff", "--cached", "--quiet").returncode == 0:
+        return True
+    git("-c", "user.name=radar-bot", "-c", "user.email=radar-bot@users.noreply.github.com", "commit", "-qm", "state: drip")
+    return git("push", "-q").returncode == 0
+
+
+def loop(a, poll: float = 60.0) -> int:
+    """Працює a.loop хвилин: кожну хвилину бере свіжий стан із репозиторію, виконує крок і одразу публікує стан назад."""
+    end = time.time() + a.loop * 60
+    pending: list[tuple[dict, datetime]] = []  # надіслані, але ще не збережені в репозиторії (щоб не повторити)
+    while True:
         try:
-            publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), e["html"], e.get("preview"))
-        except SystemExit as exc:
-            print(f"✗ не надіслано: {exc}", file=sys.stderr)
-            st.save_queue(q)  # лишаємо в черзі, спробуємо наступного разу
-            return 0
-        q.remove(e)
-        st.set_last_sent(now)
-        st.log_event("sent", e["headline"], now)
-        st.save_queue(q)
+            if a.git:
+                git("fetch", "-q", "origin", "main")
+                git("reset", "-q", "--hard", "origin/main")
+            st = State(ROOT / "state")
+            apply_sent(st, pending)
+            now = datetime.now(timezone.utc)
+            e = step(a, st, now)
+            if e:
+                pending.append((e, now))
+            if a.git:
+                if push_state():
+                    pending.clear()
+                else:
+                    print("(не вдалося зберегти стан; повторю в наступному циклі)", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001
+            print(f"✗ збій циклу: {exc}", file=sys.stderr)
+        if time.time() + poll >= end:
+            break
+        time.sleep(poll)
+    return 0
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--max-age", type=float, default=13.0, help="скільки годин пост може чекати в черзі (вечірня порція має дожити до ранку)")
+    ap.add_argument("--now", help="фіксований час UTC 'YYYY-MM-DDTHH:MM' (для перевірки)")
+    ap.add_argument("--dry", action="store_true", help="лише показати, що було б надіслано")
+    ap.add_argument("--loop", type=float, default=0, help="працювати безперервно стільки хвилин (для Actions); 0 — один крок")
+    ap.add_argument("--poll", type=float, default=60, help="пауза між циклами, секунд")
+    ap.add_argument("--git", action="store_true", help="у безперервному режимі синхронізувати state через git")
+    a = ap.parse_args(argv)
+    if a.loop:
+        return loop(a, a.poll)
+    now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
+    step(a, State(ROOT / "state"), now)
     return 0
 
 
