@@ -50,6 +50,24 @@ def send(token: str, chat: str, html_text: str, preview: str | None = None) -> N
     api("sendMessage", token, params)
 
 
+def send_photo(token: str, chat: str, path, caption: str) -> None:
+    """Надіслати картинку з підписом (HTML, до 1024 символів): multipart-завантаження без зовнішніх бібліотек."""
+    import uuid
+    boundary = uuid.uuid4().hex
+    parts = []
+    for k, v in (("chat_id", chat), ("caption", caption[:1024]), ("parse_mode", "HTML")):
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+    data = pathlib.Path(path).read_bytes()
+    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="card.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'.encode() + data + b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode())
+    req = Request(f"https://api.telegram.org/bot{token}/sendPhoto", data=b"".join(parts), headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urlopen(req, timeout=60) as r:  # noqa: S310
+            json.loads(r.read().decode())
+    except HTTPError as e:
+        raise SystemExit(f"Telegram: HTTP {e.code} {e.read().decode('utf-8', 'replace')[:300].replace(token, '***')}") from None
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--find-chat", action="store_true")

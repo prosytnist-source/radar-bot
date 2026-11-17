@@ -1,0 +1,244 @@
+"""Щоденні фіксовані пости: свято, курс НБУ, ціни на пальне, хвилина мовчання (картка + короткий підпис).
+  python3 -m digest.fixed --kind holiday|rates|fuel|silence [--dry] [--now 'YYYY-MM-DDTHH:MM' UTC] [--force]
+Правила: на паузі (/stop) не публікує; не публікує повторно за ту саму дату; запізнившись надто сильно — пропускає;
+помилка джерела — нічого не публікує, а надсилає власнику коротке повідомлення (вигаданих чисел не буває)."""
+from __future__ import annotations
+
+import argparse
+import html
+import json
+import pathlib
+import statistics
+import sys
+from datetime import date, datetime, timedelta, timezone
+from html.parser import HTMLParser
+from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
+
+from . import publish
+from .calendar_ua import LABEL, holidays_for
+from .state import State
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+CARDS = ROOT / "assets" / "cards"
+TZ = "Europe/Kyiv"
+TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0)}
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 40}  # хвилини: пізніше — пропускаємо
+MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
+NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
+FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
+FOOT = "<i>Автоматичний пост каналу РАДАР.</i>"
+
+
+def get(url: str, timeout: int = 30) -> str:
+    req = Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; RadarBot/1.0)"})
+    with urlopen(req, timeout=timeout) as r:  # noqa: S310
+        return r.read().decode("utf-8", "replace")
+
+
+def human(d: date) -> str:
+    return f"{d.day} {MONTHS[d.month - 1]}"
+
+
+# ---------- свято ----------
+def holiday_post(d: date):
+    hs = holidays_for(d)
+    if not hs:
+        return None
+    lines = [f"<b>Сьогодні, {human(d)}</b>", ""]
+    for name, kind in hs:
+        lines.append(f"• {html.escape(name, quote=False)} <i>({LABEL[kind]})</i>")
+    lines += ["", FOOT]
+    return CARDS / f"holiday-{d.day}.jpg", "\n".join(lines)
+
+
+# ---------- курс НБУ ----------
+def parse_nbu(raw: str) -> dict[str, float]:
+    return {x["cc"]: float(x["rate"]) for x in json.loads(raw) if x.get("cc") in ("USD", "EUR", "PLN", "GBP")}
+
+
+def rates_post(d: date, fetch=get):
+    today = parse_nbu(fetch(NBU.format(d=d)))
+    if not {"USD", "EUR"} <= set(today):
+        raise RuntimeError("НБУ не віддав USD/EUR")
+    try:
+        prev = parse_nbu(fetch(NBU.format(d=d - timedelta(days=1))))
+    except Exception:  # noqa: BLE001
+        prev = {}
+    lines = [f"<b>Офіційний курс НБУ на {d:%d.%m}</b>", ""]
+    for cc, sym in (("USD", "Долар США"), ("EUR", "Євро"), ("PLN", "Злотий")):
+        if cc not in today:
+            continue
+        ch = ""
+        if cc in prev and abs(today[cc] - prev[cc]) >= 0.005:
+            dl = today[cc] - prev[cc]
+            ch = f" ({'▲' if dl > 0 else '▼'} {abs(dl):.2f})"
+        lines.append(f"{sym}: <b>{today[cc]:.2f}</b> грн{ch}".replace(".", ","))
+    lines += ["", "<i>Джерело: Національний банк України. Зміна — до попереднього дня.</i>"]
+    return CARDS / "rates.jpg", "\n".join(lines)
+
+
+# ---------- пальне ----------
+class _Table(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.rows, self._row, self._cell, self._in = [], None, "", False
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._row = []
+        elif tag in ("td", "th") and self._row is not None:
+            self._in, self._cell = True, ""
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self._row is not None and self._in:
+            self._row.append(" ".join(self._cell.split()))
+            self._in = False
+        elif tag == "tr" and self._row is not None:
+            self.rows.append(self._row)
+            self._row = None
+
+    def handle_data(self, data):
+        if self._in:
+            self._cell += data
+
+
+def parse_fuel(page: str) -> dict:
+    """Середні ціни за провідними операторами зі сторінки Мінфіну: {'date': 'ДД.ММ.РРРР', 'А-95': 76.3, 'ДП': …, 'Газ': …, 'n': {...}}."""
+    t = _Table()
+    t.feed(page)
+    hdr_i = next((i for i, r in enumerate(t.rows) if "Оператор" in r and "ДП" in r), None)
+    if hdr_i is None:
+        raise RuntimeError("не знайдено таблицю цін")
+    hdr = t.rows[hdr_i]
+    cols = {"А-95": next((i for i, h in enumerate(hdr) if h.replace(" ", "") == "А95"), None),
+            "А-92": next((i for i, h in enumerate(hdr) if h.replace(" ", "") == "А92"), None),
+            "ДП": hdr.index("ДП"), "Газ": next((i for i, h in enumerate(hdr) if h == "Газ"), None)}
+    vals: dict[str, list[float]] = {k: [] for k, v in cols.items() if v is not None}
+    for r in t.rows[hdr_i + 1:]:
+        for k, i in cols.items():
+            if i is None or i >= len(r):
+                continue
+            try:
+                v = float(r[i].replace(",", "."))
+            except ValueError:
+                continue
+            if 20 < v < 300:  # відсікаємо сміття
+                vals[k].append(v)
+    import re
+    m = re.search(r"на\s+(\d{2}\.\d{2}\.\d{4})", page)
+    out = {k: round(statistics.mean(v), 2) for k, v in vals.items() if len(v) >= 3}
+    if "А-95" not in out or "ДП" not in out:
+        raise RuntimeError("замало даних у таблиці")
+    out["n"] = {k: len(v) for k, v in vals.items()}
+    out["date"] = m.group(1) if m else ""
+    return out
+
+
+def fuel_post(d: date, st: State, fetch=get):
+    cur = parse_fuel(fetch(FUEL_URL))
+    prev_file = st.dir / "fuel.json"
+    try:
+        prev = json.loads(prev_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        prev = {}
+    lines = [f"<b>Вартість пального на {d:%d.%m}</b>", "<i>середнє за провідними мережами АЗС, грн/л</i>", ""]
+    for k, name in (("А-95", "Бензин А-95"), ("А-92", "Бензин А-92"), ("ДП", "Дизель"), ("Газ", "Автогаз")):
+        if k not in cur:
+            continue
+        ch = ""
+        if k in prev and abs(cur[k] - prev[k]) >= 0.005:
+            dl = cur[k] - prev[k]
+            ch = f" ({'▲' if dl > 0 else '▼'} {abs(dl):.2f})"
+        lines.append(f"{name}: <b>{cur[k]:.2f}</b>{ch}".replace(".", ","))
+    note = f" (дані на {cur['date']})" if cur.get("date") and cur["date"] != f"{d:%d.%m.%Y}" else ""
+    lines += ["", f"<i>Джерело: Мінфін / A-95 Consulting{note}. Зміна — до попереднього допису.</i>"]
+    return CARDS / "fuel.jpg", "\n".join(lines), {k: v for k, v in cur.items() if k in ("А-95", "А-92", "ДП", "Газ")}
+
+
+# ---------- хвилина мовчання ----------
+def silence_post(d: date):
+    text = ("<b>Хвилина мовчання</b>\n\nО 9:00 вшановуємо пам'ять тих, хто загинув, захищаючи Україну. "
+            "Зупинімося на хвилину.\n\n<i>Вічна пам'ять і шана.</i>")
+    return CARDS / "silence.jpg", text
+
+
+# ---------- запуск ----------
+def due(kind: str, now: datetime) -> tuple[bool, str]:
+    z = now.astimezone(ZoneInfo(TZ))
+    h, m = TARGET[kind]
+    target = z.replace(hour=h, minute=m, second=0, microsecond=0)
+    late = (z - target).total_seconds() / 60
+    if late < -10:
+        return False, "ще рано"
+    if late > LATE[kind]:
+        return False, f"запізнення {int(late)} хв — пропускаю"
+    return True, ""
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--kind", required=True, choices=list(TARGET))
+    ap.add_argument("--now")
+    ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--force", action="store_true", help="ігнорувати паузу, «вже публікували» і запізнення (для ручної перевірки)")
+    a = ap.parse_args(argv)
+    now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
+    today = now.astimezone(ZoneInfo(TZ)).date()
+    st = State(ROOT / "state")
+    mark_file = st.dir / "fixed.json"
+    try:
+        marks = json.loads(mark_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        marks = {}
+    if not a.force:
+        if st.paused():
+            print("⏸ Пауза: нічого не публікую.")
+            return 0
+        if marks.get(a.kind) == today.isoformat():
+            print("Сьогодні вже опубліковано.")
+            return 0
+        ok, why = due(a.kind, now)
+        if not ok:
+            print(why)
+            return 0
+    extra = None
+    try:
+        if a.kind == "holiday":
+            res = holiday_post(today)
+        elif a.kind == "rates":
+            res = rates_post(today)
+        elif a.kind == "fuel":
+            res = fuel_post(today, st)
+            extra = res[2]
+            res = res[:2]
+        else:
+            res = silence_post(today)
+    except Exception as exc:  # noqa: BLE001
+        msg = f"⚠️ РАДАР: пост «{a.kind}» не вийшов ({str(exc)[:150]}). Нічого не опубліковано."
+        print(msg, file=sys.stderr)
+        if not a.dry:
+            try:
+                publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), html.escape(msg, quote=False))
+            except SystemExit:
+                pass
+        return 0
+    if res is None:
+        print("Сьогодні немає свят у календарі — пост пропущено.")
+        return 0
+    card, caption = res
+    if a.dry:
+        print(card, "\n", caption)
+        return 0
+    publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), card, caption)
+    marks[a.kind] = today.isoformat()
+    mark_file.write_text(json.dumps(marks), encoding="utf-8")
+    if extra:
+        (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
+    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання"}[a.kind], now)
+    print("Опубліковано:", a.kind)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

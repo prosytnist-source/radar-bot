@@ -1,0 +1,59 @@
+name: radar-fixed
+# Щоденні фіксовані пости: свято 06:00, курс НБУ 06:30, пальне 07:00, хвилина мовчання 09:00 (Київ).
+# Час у UTC для зими (Київ = UTC+2). Навесні, коли годинник переходить на літній час, усі рядки cron зсунути на годину раніше.
+# GitHub може запускати з запізненням на кілька хвилин; пост «Хвилина мовчання» пропускається, якщо запізнення понад 40 хв.
+on:
+  schedule:
+    - cron: "0 4 * * *"    # 06:00 Київ — свято
+    - cron: "30 4 * * *"   # 06:30 — курс НБУ
+    - cron: "0 5 * * *"    # 07:00 — пальне
+    - cron: "0 7 * * *"    # 09:00 — хвилина мовчання
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "holiday | rates | fuel | silence"
+        default: "rates"
+      force:
+        description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
+        default: "false"
+concurrency:
+  group: radar-state
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  fixed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Обрати пост
+        id: k
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 4 * * *") K=holiday ;;
+            "30 4 * * *") K=rates ;;
+            "0 5 * * *") K=fuel ;;
+            "0 7 * * *") K=silence ;;
+            *) K="${{ github.event.inputs.kind }}" ;;
+          esac
+          echo "kind=$K" >> "$GITHUB_OUTPUT"
+      - name: Пост
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+        run: |
+          F=""
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then F="--force"; fi
+          python -m digest.fixed --kind "${{ steps.k.outputs.kind }}" $F
+      - name: Зберегти стан
+        if: always()
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "radar-bot@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || (git commit -m "state: fixed ${{ steps.k.outputs.kind }}" && git pull --rebase && git push)
