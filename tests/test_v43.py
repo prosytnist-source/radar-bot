@@ -21,7 +21,7 @@ class V43(unittest.TestCase):
         self.assertEqual(f(3, "en"), "Reported by 3 outlets")
 
     def test_interval_faster(self):
-        self.assertEqual(interval_minutes(1), 40.0)
+        self.assertEqual(interval_minutes(1), 30.0)
         self.assertEqual(interval_minutes(10), 24.0)
         self.assertEqual(interval_minutes(30), 15.0)
 

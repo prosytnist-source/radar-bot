@@ -48,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--batch", type=int, default=3, help="скільки решти подій в одному запиті (на запасній моделі)")
     ap.add_argument("--max-per-region", type=int, default=6)  # у Радарі майже все — «Україна», тож обмеження за регіоном майже не потрібне
     ap.add_argument("--min-importance", type=int, default=6, help="не брати події з оцінкою важливості нижче (1..10)")
+    ap.add_argument("--relaxed", action="store_true", help="послаблений добір (після години тиші): поріг важливості 5, ширший запас кандидатів")
     ap.add_argument("--polish", type=int, default=2, help="скільки найважливіших постів літературно вичитати головною моделлю (0 = вимкнено)")
     ap.add_argument("--include-soft", action="store_true", help="не відкидати культуру/спорт")
     ap.add_argument("--dry-prompt", action="store_true", help="показати запит до моделі без виклику (ключ не потрібен)")
@@ -103,7 +104,10 @@ def main(argv: list[str] | None = None) -> int:
     for sid, err in errors.items():
         print(f"  ✗ {sid}: {err}", file=sys.stderr)
 
-    pool = args.candidates if args.synth or args.dry_prompt else args.top
+    if args.relaxed:
+        args.min_importance = min(args.min_importance, 5)
+    # беремо запас: частину кандидатів відсіють як «уже писали», а черга не повинна лишатися порожньою через це
+    pool = args.candidates * 3 if args.synth or args.dry_prompt else args.top
     ranked = rank(cluster_items(items, args.threshold), now, args.window, args.min_sources, pool)
     if args.synth or args.dry_prompt:
         return run_synth(ranked, by_id, now, cfg.get("timezone", "Europe/Kyiv"), args)
@@ -134,6 +138,7 @@ def run_synth(ranked, by_id, now, tz, args) -> int:
         ranked = [r for r in ranked if not st.is_duplicate(r, now)]
         if before != len(ranked):
             print(f"  (пропущено подій, про які вже писали: {before - len(ranked)})", file=sys.stderr)
+    ranked = ranked[: args.candidates]
 
     def ck_of(r, brief=False):
         h = hashlib.sha1(("\n".join(sorted(i.link for i in r.cluster.items)) + "|" + ",".join(langs) + ("|brief" if brief else "")).encode()).hexdigest()[:20]

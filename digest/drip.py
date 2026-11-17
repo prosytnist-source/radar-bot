@@ -20,7 +20,7 @@ URGENT = 9
 
 
 def interval_minutes(n: int) -> float:
-    return min(40.0, max(15.0, 240.0 / max(n, 1)))
+    return min(30.0, max(15.0, 240.0 / max(n, 1)))
 
 
 def choose(q: list[dict], now: datetime, last: datetime | None, tz: str = "Europe/Kyiv", night=(23, 7)) -> dict | None:
