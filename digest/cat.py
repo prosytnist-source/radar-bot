@@ -16,7 +16,7 @@ BUDGET = 150
 last_error: list[str] = []
 
 # Кіт-Радар — постійний персонаж. Амплуа за днем тижня (0 = понеділок); у кожного — кілька сцен (англійською) і підписів.
-CHARACTER = ("Kit-Radar: a fluffy ginger cat with a white muzzle and white chest, big expressive slightly sly eyes, "
+CHARACTER = ("Kit-Radar: a fluffy ginger cat with a white muzzle and white chest, thick expressive eyebrows, round chubby cheeks, big expressive slightly sly half-lidded eyes, "
              "human-like behavior, clothes and accessories, Pixar-like 3D animated movie style, extremely detailed fur, cinematic soft lighting")
 ROLES = {
     0: ("Кіт на роботі", [
