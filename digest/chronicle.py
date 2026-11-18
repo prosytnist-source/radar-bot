@@ -183,8 +183,8 @@ def write(cand: dict, kind: str, src: dict, key: str | None, model: str | None =
         fb_text = first_sentences(f"{cand['year']} року: {cand['text']}. {src.get('extract', '')}".replace("..", "."), 460)
     if not key:
         return fallback_title, fb_text
-    what = ("постать (народження або день пам'яті)" if kind == "figure" else "історична подія")
-    prompt = f"Тема: {what}. Річниця: {cand['n']} років тому ({cand['year']} рік).\n\nДЖЕРЕЛО:\n{source[:2200]}"
+    what = {"birth": "постать; сьогодні її день народження (вона народилася цього дня)", "death": "постать; сьогодні день її пам'яті (вона померла цього дня)"}.get(cand["kind"], "історична подія")
+    prompt = f"Тема: {what}. Річниця: {cand['n']} років тому ({cand['year']} рік). Не пиши «народився або» чи подібних вагань.\n\nДЖЕРЕЛО:\n{source[:2200]}"
     for mdl in (model or llm.DEFAULT_MODEL, llm.FALLBACK_MODEL):
         try:
             out = json.loads(call(SYSTEM, prompt, mdl, key))
@@ -193,6 +193,8 @@ def write(cand: dict, kind: str, src: dict, key: str | None, model: str | None =
             if llm.is_busy(exc):
                 continue
             continue
+        if kind == "figure":
+            title = fallback_title  # заголовок — точне ім'я зі статті
         if 80 <= len(text) <= 640 and title and len(title) <= 60 and grounded(text, source, cand["n"]) and grounded(title, source, cand["n"]):
             return title, text
     return fallback_title, fb_text
@@ -233,7 +235,7 @@ def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | No
         life = ""
         if kind == "figure":
             m = re.search(r"\(([^()]*?\d{4}[^()]*?[–—-][^()]*?\d{4}[^()]*?)\)", src.get("extract", "")[:300])
-            years = re.findall(r"\d{4}", m.group(1)) if m else []
+            years = re.findall(r"\d{4}", m.group(1)) if m and not re.search(r"бл\.|\?|~|прибл", m.group(1)) else []
             life = f"{years[0]}–{years[-1]}" if len(years) >= 2 else ""
         caption = f"<b>{html.escape(title, quote=False)}</b>\n"
         if life:
