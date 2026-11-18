@@ -15,36 +15,60 @@ UA = {"User-Agent": "RadarBot/1.0 (https://github.com/prosytnist-source/radar-bo
 BUDGET = 150
 last_error: list[str] = []
 
-# (сцена англійською, підпис українською). Герой завжди той самий: рудий кіт у стилі 3D-мультфільму з людськими емоціями.
-THEMES = [
-    ("sitting at a laptop late in the evening with a steaming mug, tired but proud, finishing the day's work", "Робочий день завершено. Я молодець."),
-    ("lying on a sofa under a blanket with a remote control, blissfully relaxed, cozy living room", "Вечір. Плед. Спокій."),
-    ("thinking hard with a paw on the chin, question marks floating in the air as soft shapes, no letters", "Хм. Це треба обміркувати."),
-    ("pouring coffee in the morning kitchen, sleepy half-closed eyes, messy fur", "Кава — це не напій, це режим запуску."),
-    ("celebrating with both paws up and a huge happy smile, confetti falling", "Усе вдалося! Навіть я здивований."),
-    ("holding a tiny umbrella in light rain, looking at the sky with a mildly offended face", "Знову дощ? Я ж планував гуляти."),
-    ("reading a thick book in an armchair with reading glasses, a cup of tea nearby", "Мудрість приходить повільно, зате з печивом."),
-    ("standing on a bathroom scale looking shocked, comedic exaggerated expression", "Це точно не мої цифри. Це зважування помилилось."),
-    ("hugging a big pillow, deeply sleepy, dark circles under the eyes, late night bedroom", "Ще одну серію — і спати. Так я собі казав годину тому."),
-    ("wearing a cozy knitted sweater and scarf by a snowy window, holding hot chocolate", "Зима за вікном, тепло всередині."),
-    ("cooking in the kitchen with a chef's hat, proud of a slightly burnt pancake", "Це не підгоріло. Це золота скоринка."),
-    ("working out with tiny dumbbells, very serious face but sweating a little", "Спорт — це коли страждаєш за власним розкладом."),
-    ("carrying a pile of shopping bags, tired but happy, evening city lights behind", "Купив лише найнеобхідніше. (Не лише.)"),
-    ("sitting on a window sill looking at the starry night with a dreamy gentle smile", "Іноді просто дивитися на зорі — теж робота."),
-    ("peeking over a laptop with wide eyes and a nervous smile during an online meeting", "Мікрофон вимкнений? Так? Точно вимкнений?"),
-    ("receiving a bouquet of flowers, blushing, heart-shaped glow around, sweet surprised look", "Мені? Дякую. Я зворушений."),
-    ("headphones on, listening to music with eyes closed, swaying, colorful abstract sound waves", "Світ стишено. Музика — на повну."),
-    ("sitting behind a desk with a stack of papers and a tiny tie, serious boss pose", "Нарада закінчилась, але я ще офіційний."),
-    ("stretching after waking up in a sunny bedroom, yawning widely, cheerful morning mood", "Доброго ранку. Будь ласка, без швидких рішень."),
-    ("in a hammock under a tree with sunglasses and a cold drink, total relaxation", "Відпустка — стан душі. Тримаю його."),
-    ("holding a phone and laughing out loud at a funny video, tears of joy", "Ще один мем — і справді спати."),
-    ("walking in the autumn park with fallen leaves, hands behind back, calm philosophical mood", "Осінь навчає відпускати. Листя вже навчилось."),
-    ("on a scooter in a city, wind in the whiskers, joyful carefree smile", "Іду по справах. Із вітерцем."),
-]
+# Кіт-Радар — постійний персонаж. Амплуа за днем тижня (0 = понеділок); у кожного — кілька сцен (англійською) і підписів.
+CHARACTER = ("Kit-Radar: a fluffy ginger cat with a white muzzle and white chest, big expressive slightly sly eyes, "
+             "human-like behavior, clothes and accessories, Pixar-like 3D animated movie style, extremely detailed fur, cinematic soft lighting")
+ROLES = {
+    0: ("Кіт на роботі", [
+        ("sitting at a laptop late in the evening with a steaming mug, tired but proud, finishing the day's work", "Робочий день завершено. Я молодець."),
+        ("peeking over a laptop with wide eyes and a nervous smile during an online meeting", "Мікрофон вимкнений? Так? Точно вимкнений?"),
+        ("sitting behind a desk with a stack of papers and a tiny tie, serious boss pose", "Нарада закінчилась, але я ще офіційний."),
+        ("pouring coffee in an office kitchen, sleepy half-closed eyes, messy fur, Monday morning", "Понеділок — це коли кава працює за двох."),
+    ]),
+    1: ("Кіт-відпочивальник", [
+        ("lying on a sofa under a blanket with a remote control, blissfully relaxed, cozy living room", "Вечір. Плед. Спокій."),
+        ("in a hammock under a tree with sunglasses and a cold drink, total relaxation", "Відпустка — стан душі. Тримаю його."),
+        ("headphones on, listening to music with eyes closed, swaying, colorful abstract sound waves", "Світ стишено. Музика — на повну."),
+        ("lying in a warm bubble bath with a rubber duck and a face mask, eyes closed, smiling", "Сеанс відновлення. Не турбувати."),
+    ]),
+    2: ("Кіт-господар", [
+        ("cooking in the kitchen with a chef's hat, proud of a slightly burnt pancake", "Це не підгоріло. Це золота скоринка."),
+        ("setting a festive table with candles and a big cake, welcoming guests with a warm smile", "Гості на порозі. Хвіст — прапором."),
+        ("watering houseplants with a tiny watering can, gentle caring expression, sunny home", "Квіти теж люблять увагу. Як і я."),
+        ("wearing an apron and tidying the home with a feather duster, determined face", "Прибирання — це коли знаходиш свої речі."),
+    ]),
+    3: ("Кіт-філософ", [
+        ("thinking hard with a paw on the chin, question marks floating in the air as soft shapes, no letters", "Хм. Це треба обміркувати."),
+        ("reading a thick book in an armchair with reading glasses, a cup of tea nearby", "Мудрість приходить повільно, зате з печивом."),
+        ("sitting on a window sill looking at the starry night with a dreamy gentle smile", "Іноді просто дивитися на зорі — теж робота."),
+        ("walking in the autumn park with fallen leaves, hands behind back, calm philosophical mood", "Осінь навчає відпускати. Листя вже навчилось."),
+    ]),
+    4: ("Кіт-тусовщик", [
+        ("celebrating with both paws up and a huge happy smile, confetti falling, party hat", "П'ятниця! Хвіст у ритмі."),
+        ("dancing in a disco with colorful lights and sunglasses, full of joy", "Я не танцюю. Я просто рухаюсь у ритмі."),
+        ("receiving a bouquet of flowers and a gift box, blushing, sweet surprised look", "Мені? Дякую. Я зворушений."),
+        ("holding a phone and laughing out loud at a funny video, tears of joy", "Ще один мем — і справді спати."),
+    ]),
+    5: ("Кіт-мандрівник", [
+        ("on a scooter in a city, wind in the whiskers, joyful carefree smile", "Іду по справах. Із вітерцем."),
+        ("with a backpack and a map at a mountain viewpoint, amazed happy face", "Дорога сама себе не пройде. Пішли."),
+        ("carrying a pile of shopping bags, tired but happy, evening city lights behind", "Купив лише найнеобхідніше. (Не лише.)"),
+        ("holding a tiny umbrella in light rain, looking at the sky with a mildly offended face", "Знову дощ? Я ж планував гуляти."),
+    ]),
+    6: ("Кіт-ледар", [
+        ("stretching after waking up in a sunny bedroom, yawning widely, cheerful lazy mood", "Доброго ранку. Будь ласка, без швидких рішень."),
+        ("hugging a big pillow, deeply sleepy, dark circles under the eyes, late night bedroom", "Ще одну серію — і спати. Так я собі казав годину тому."),
+        ("wearing a cozy knitted sweater and scarf by a snowy window, holding hot chocolate", "Зима за вікном, тепло всередині."),
+        ("standing on a bathroom scale looking shocked, comedic exaggerated expression", "Це точно не мої цифри. Це зважування помилилось."),
+    ]),
+}
 
 
-def theme_for(d: date) -> tuple[str, str]:
-    return THEMES[d.toordinal() % len(THEMES)]
+def theme_for(d: date) -> tuple[str, str, str]:
+    """(амплуа, сцена англійською, підпис) за днем тижня; сцени в межах амплуа чергуються по тижнях."""
+    role, scenes = ROLES[d.weekday()]
+    scene, line = scenes[(d.toordinal() // 7) % len(scenes)]
+    return role, scene, line
 
 
 def _gen_models(key: str, call=llm._call) -> list[str]:
@@ -58,7 +82,7 @@ def _gen_models(key: str, call=llm._call) -> list[str]:
                 names.append(n)
     except Exception:  # noqa: BLE001
         pass
-    names.sort(reverse=True)
+    names.sort(key=lambda n: ("lite" in n, "preview" in n, n))  # повна якість першою: звичайна, потім preview, lite — останньою
     return names or ["gemini-2.5-flash-image"]
 
 
@@ -73,10 +97,10 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     t0 = time.monotonic()
     models = _gen_models(key, call)
     last_error.append(f"моделі для малювання: {models[:3]}")
-    for model in models[:2]:
+    for model in models[:3]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        parts = [{"text": f"Create a new square 1:1 image in EXACTLY the style and with the SAME character as the attached reference images: a charming ginger cat in a Pixar-like 3D animated movie style, extremely detailed fur, big expressive eyes, human-like emotion and pose, cinematic soft lighting, warm friendly colors. New scene: {prompt_en}. No text, no letters, no watermark, no logos."}]
+        parts = [{"text": f"Create a new square 1:1 image of the SAME recurring character as in the attached reference images, in exactly the same style. Character: {CHARACTER}. New scene: {prompt_en}. Warm friendly colors. No text, no letters, no watermark, no logos."}]
         for ref in _refs():
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
         payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
@@ -143,7 +167,7 @@ def stock_photo(get=_get) -> bytes | None:
 
 def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get, allow_photo: bool = False, allow_free: bool = False):
     """→ (шлях, підпис, походження) або None."""
-    prompt, line = theme_for(today)
+    role, prompt, line = theme_for(today)
     img, origin = None, ""
     last_error.clear()
     if key:
@@ -163,5 +187,5 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
         return None
     path = pathlib.Path(out_dir) / f"cat-{today.isoformat()}.jpg"
     path.write_bytes(img)
-    caption = f"<b>Котик дня 🐱</b>\n{line}"
+    caption = f"<b>Кіт-Радар 🐱</b> · {role}\n{line}"
     return path, caption, origin

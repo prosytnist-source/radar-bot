@@ -110,6 +110,7 @@ class CatTests(unittest.TestCase):
     def test_theme_rotates(self):
         from digest import cat
         self.assertNotEqual(cat.theme_for(date(2026, 11, 18)), cat.theme_for(date(2026, 11, 19)))
+        self.assertEqual(cat.theme_for(date(2026, 11, 16))[0], "Кіт на роботі")  # понеділок
 
     def test_generate_and_fallback(self):
         import base64, tempfile
@@ -123,7 +124,7 @@ class CatTests(unittest.TestCase):
             raise OSError("no")
         with tempfile.TemporaryDirectory() as d:
             r = cat.build(date(2026, 11, 18), "k", d, call=good, get=lambda u, t=25: b"y" * 6000)
-            self.assertIn("ШІ-картинка", r[2]); self.assertIn("Котик дня", r[1])
+            self.assertIn("ШІ-картинка", r[2]); self.assertIn("Кіт-Радар", r[1])
             def get(u, t=25):
                 return json.dumps([{"url": "http://img"}]).encode() if "thecatapi" in u and "img" not in u else b"y" * 6000
             r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=get, allow_photo=True)

@@ -172,7 +172,7 @@ def silence_post(d: date):
 
 # ---------- рубрики «Визначні постаті» і «Історичний факт» ----------
 RUBRICS = ROOT / "rubrics.json"
-RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Котик дня"}
+RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Кіт-Радар"}
 
 
 def rubric_mode(kind: str) -> str:
@@ -315,7 +315,7 @@ def main(argv=None) -> int:
     mark_file.write_text(json.dumps(marks), encoding="utf-8")
     if extra:
         (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
-    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Котик дня"}[a.kind], now)
+    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Кіт-Радар"}[a.kind], now)
     print("Опубліковано:", a.kind)
     return 0
 
