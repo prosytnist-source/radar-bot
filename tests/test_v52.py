@@ -104,3 +104,28 @@ class T(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CatTests(unittest.TestCase):
+    def test_theme_rotates(self):
+        from digest import cat
+        self.assertNotEqual(cat.theme_for(date(2026, 11, 18)), cat.theme_for(date(2026, 11, 19)))
+
+    def test_generate_and_fallback(self):
+        import base64, tempfile
+        from digest import cat
+        png = base64.b64encode(b"x" * 6000).decode()
+        def good(url, key, payload, timeout=60):
+            if url.endswith("pageSize=200"):
+                return {"models": [{"name": "models/gemini-x-image", "supportedGenerationMethods": ["generateContent"]}]}
+            return {"candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": png}}]}}]}
+        def bad(url, key, payload, timeout=60):
+            raise OSError("no")
+        with tempfile.TemporaryDirectory() as d:
+            r = cat.build(date(2026, 11, 18), "k", d, call=good, get=lambda u, t=25: b"y" * 6000)
+            self.assertIn("ШІ-картинка", r[2]); self.assertIn("Котик дня", r[1])
+            def get(u, t=25):
+                return json.dumps([{"url": "http://img"}]).encode() if "thecatapi" in u and "img" not in u else b"y" * 6000
+            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=get)
+            self.assertIn("недоступна", r[2])
+            self.assertIsNone(cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError())))

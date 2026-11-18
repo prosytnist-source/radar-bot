@@ -85,4 +85,4 @@ class Silence(unittest.TestCase):
         calls = []
         with mock.patch("digest.fixed.main", side_effect=lambda argv: calls.append(argv[1])):
             drip.fixed_tick(Namespace(), 60, _t.time() + 3000, {})
-        self.assertEqual(calls, ["holiday", "rates", "fuel", "figure", "fact"])
+        self.assertEqual(calls, ["holiday", "rates", "fuel", "figure", "fact", "cat"])

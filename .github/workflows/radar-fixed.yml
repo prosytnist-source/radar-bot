@@ -9,10 +9,11 @@ on:
     - cron: "0 5 * * *"    # 07:00 — пальне
     - cron: "0 10 * * *"   # 12:00 — Визначні постаті
     - cron: "0 15 * * *"   # 17:00 — Історичний факт
+    - cron: "0 20 * * *"   # 22:00 — Котик дня
   workflow_dispatch:
     inputs:
       kind:
-        description: "holiday | rates | fuel | figure | fact"
+        description: "holiday | rates | fuel | figure | fact | cat"
         default: "rates"
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
@@ -42,6 +43,7 @@ jobs:
             "0 5 * * *") K=fuel ;;
             "0 10 * * *") K=figure ;;
             "0 15 * * *") K=fact ;;
+            "0 20 * * *") K=cat ;;
             *) K="${{ github.event.inputs.kind }}" ;;
           esac
           echo "kind=$K" >> "$GITHUB_OUTPUT"

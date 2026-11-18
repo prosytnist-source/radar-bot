@@ -22,8 +22,8 @@ from .state import State
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARDS = ROOT / "assets" / "cards"
 TZ = "Europe/Kyiv"
-TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "fact": (17, 0)}
-LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "fact": 300}  # хвилини: пізніше — пропускаємо
+TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "fact": (17, 0), "cat": (22, 0)}
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "fact": 300, "cat": 180}  # хвилини: пізніше — пропускаємо
 MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
 NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
 FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
@@ -172,7 +172,7 @@ def silence_post(d: date):
 
 # ---------- рубрики «Визначні постаті» і «Історичний факт» ----------
 RUBRICS = ROOT / "rubrics.json"
-RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт"}
+RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Котик дня"}
 
 
 def rubric_mode(kind: str) -> str:
@@ -183,7 +183,22 @@ def rubric_mode(kind: str) -> str:
         return "preview"
 
 
+def cat_post(d: date, st: State):
+    from . import cat, llm
+    try:
+        key = llm.load_key()
+    except llm.LLMError:
+        key = None
+    r = cat.build(d, key)
+    if r is None:
+        return None
+    path, caption, origin = r
+    return path, caption, None, [origin]
+
+
 def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = None, call=None):
+    if kind == "cat":
+        return cat_post(d, st)
     from . import card, chronicle, llm
     used_file = st.dir / "chronicle.json"
     try:
@@ -288,9 +303,11 @@ def main(argv=None) -> int:
     if a.kind in RUBRIC_NAMES:
         preview = rubric_mode(a.kind) != "live"
         chat = publish.env("TELEGRAM_OWNER_ID") if preview else publish.env("TELEGRAM_CHAT_ID")
-        cap = (f"<b>👀 Пробний показ рубрики «{RUBRIC_NAMES[a.kind]}»</b> (у канал не йде)\n\n" if preview else "") + caption
+        note = f" · {extra[1][0]}" if a.kind == "cat" else ""
+        cap = (f"<b>👀 Пробний показ рубрики «{RUBRIC_NAMES[a.kind]}»</b> (у канал не йде{note})\n\n" if preview else "") + caption
         publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), chat, card, cap)
-        extra[0].write_text(json.dumps({"used": extra[1]}, ensure_ascii=False), encoding="utf-8")
+        if extra[0] is not None:
+            extra[0].write_text(json.dumps({"used": extra[1]}, ensure_ascii=False), encoding="utf-8")
         extra = None
     else:
         publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), card, caption)
@@ -298,7 +315,7 @@ def main(argv=None) -> int:
     mark_file.write_text(json.dumps(marks), encoding="utf-8")
     if extra:
         (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
-    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт"}[a.kind], now)
+    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Котик дня"}[a.kind], now)
     print("Опубліковано:", a.kind)
     return 0
 
