@@ -267,7 +267,7 @@ def main(argv=None) -> int:
     except Exception as exc:  # noqa: BLE001
         msg = f"⚠️ РАДАР: пост «{a.kind}» не вийшов ({str(exc)[:400]}). Нічого не опубліковано."
         print(msg, file=sys.stderr)
-        if a.kind in RUBRIC_NAMES and marks.get("alert-" + a.kind) == today.isoformat():
+        if a.kind in RUBRIC_NAMES and not a.force and marks.get("alert-" + a.kind) == today.isoformat():
             return 0  # про збій рубрики повідомляємо раз на добу; наступні спроби тихі
         if a.kind in RUBRIC_NAMES and not a.dry:
             marks["alert-" + a.kind] = today.isoformat()
