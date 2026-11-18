@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import pathlib
 import time
@@ -17,14 +18,17 @@ BUDGET = 150
 last_error: list[str] = []
 
 # Кіт-Радар — постійний персонаж: сучасний, впевнений, трохи нахабний «крутий» кіт, а не казковий. Амплуа за днем тижня (0 = понеділок).
-CHARACTER = ("Kit-Radar: a chubby, cocky, deadpan ginger tabby cat with a white muzzle and white chest, thick expressive eyebrows, "
-             "round full cheeks, huge glossy half-lidded eyes with a smug sly look, relaxed confident human-like posture, "
-             "wearing casual modern clothes when the scene fits (hoodie, jeans, sneakers)")
-STYLE = ("Ultra-detailed 3D animated film still, Pixar-quality rendering. Modern, cool, contemporary lifestyle mood - NOT a fairy tale, "
-         "NOT a storybook or children's cartoon, no bow ties or fancy vests, no wide-open mouth, no cake-and-candles clichés. "
-         "Shot like a cinematic photograph: close-up or low camera angle, shallow depth of field with soft bokeh, warm rim light, "
-         "hyper-detailed individual fur strands. Square 1:1. Somewhere in the scene include a cream mug or object with a small black paw-print logo. "
-         "No text, no letters, no watermark.")
+CHARACTER = ("Kit-Radar: a modern, charismatic, slim-bodied ginger tabby cat (NOT fat, normal athletic body; only the cheeks are round and full) "
+             "with a white muzzle and white chest, thick dark curved expressive eyebrows, a small pink nose, pink inner ears, long thin white whiskers, "
+             "huge glossy eyes with large white sclera - either glancing sideways and up with a smug look, or closed in a blissful smile - "
+             "a small content closed-mouth smile, a fluffy tail, relaxed human-like posture. "
+             "Wears a dark charcoal knit hoodie, white t-shirt, blue jeans and white sneakers when the scene fits")
+STYLE = ("Ultra-detailed 3D animated film still, premium Pixar-quality rendering, cinematic and modern. "
+         "Low camera angle, close shot: the cat's face is large and fills at least 40 percent of the frame, head slightly tilted. "
+         "Cinematic contrast lighting with a warm orange accent light and soft glowing rim light on the fur, shallow depth of field with creamy bokeh. "
+         "Hyper-detailed individual fur strands and long visible whiskers. Square 1:1. "
+         "Recurring brand details: a cream mug or object with a small black paw-print logo; in indoor scenes a dark navy wall with a gold-framed picture of a peace-sign hand, a shelf with books, a plant and a warm lamp. "
+         "NOT a children's storybook, NOT a plush toy look, NOT a full-body centered frontal pose, NOT fat, no wide-open mouth. No text, no letters, no watermark.")
 ROLES = {
     0: ("Кіт на роботі", [
         ("slouched at a desk in front of a laptop late in the evening, a steaming mug nearby, tired but proud smirk, city lights in the window behind", "Робочий день завершено. Я молодець."),
@@ -107,7 +111,7 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     for model in models[:3]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        parts = [{"text": f"{STYLE} Draw the SAME recurring character as in the attached reference image - copy its face, eyebrows, eyes, cheeks, fur color and 3D style exactly. Character: {CHARACTER}. Scene: {prompt_en}."}]
+        parts = [{"text": f"{STYLE} Draw the SAME recurring character as in the attached reference images (they show one cat in different moods): copy its face EXACTLY - eyebrows, eyes, nose, cheeks, whiskers, ears, fur color, 3D rendering style, lighting quality. Character: {CHARACTER}. New scene: {prompt_en}."}]
         for ref in _refs():
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
         payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
@@ -191,17 +195,24 @@ def brand_mark(path) -> None:
     text = "КІТ-РАДАР"
     tw = d.textlength(text, font=f)
     pad = int(h * 0.30)
-    w = int(h + tw + pad * 2)
+    w = int(h * 0.95 + tw + pad * 2)
     x1, y1 = W - int(W * 0.03), H - int(H * 0.03)
     x0, y0 = x1 - w, y1 - h
-    d.rounded_rectangle((x0, y0, x1, y1), radius=h // 2, fill=(14, 14, 18, 190))
-    # відбиток лапки: подушечка + 4 пальці
-    cx, cy, r = x0 + pad + h * 0.30, y0 + h * 0.58, h * 0.20
-    orange = (255, 150, 40, 255)
-    d.ellipse((cx - r * 1.3, cy - r * 0.9, cx + r * 1.3, cy + r * 1.25), fill=orange)
-    for dx, dy, k in ((-1.5, -1.25, 0.46), (-0.5, -1.85, 0.5), (0.5, -1.85, 0.5), (1.5, -1.25, 0.46)):
-        d.ellipse((cx + dx * r - r * k, cy + dy * r - r * k, cx + dx * r + r * k, cy + dy * r + r * k), fill=orange)
-    d.text((x0 + h * 0.62 + pad, y0 + (h - h * 0.50) / 2 - h * 0.04), text, font=f, fill=(255, 255, 255, 245))
+    d.rounded_rectangle((x0, y0, x1, y1), radius=h // 2, fill=(247, 238, 220, 235))
+    # як на кружці: чорна лапка на кремовій «таблетці»
+    cx, cy, u = x0 + pad + h * 0.30, y0 + h * 0.60, h * 0.2
+    black = (20, 20, 22, 255)
+    d.ellipse((cx - 1.35 * u, cy - 0.7 * u, cx + 1.35 * u, cy + 1.25 * u), fill=black)
+    for dx in (-1.1, 1.1):
+        d.ellipse((cx + dx * u - 0.55 * u, cy + 0.35 * u, cx + dx * u + 0.55 * u, cy + 1.3 * u), fill=black)
+    for dx, dy, rot in ((-1.75, -0.55, -35), (-0.65, -1.45, -12), (0.65, -1.45, 12), (1.75, -0.55, 35)):
+        a_ = math.radians(rot); pts = []
+        for k in range(24):
+            t = 2 * math.pi * k / 24
+            ex, ey = 0.42 * u * math.cos(t), 0.62 * u * math.sin(t)
+            pts.append((cx + dx * u + ex * math.cos(a_) - ey * math.sin(a_), cy + dy * u + ex * math.sin(a_) + ey * math.cos(a_)))
+        d.polygon(pts, fill=black)
+    d.text((x0 + pad + h * 0.95, y0 + (h - h * 0.50) / 2 - h * 0.04), text, font=f, fill=(25, 25, 28, 255))
     Image.alpha_composite(im.convert("RGBA"), ov).convert("RGB").save(path, "JPEG", quality=92)
 
 
