@@ -187,3 +187,38 @@ class Wipe(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class V51(unittest.TestCase):
+    def test_agree_needs_two_outlets_and_is_rendered(self):
+        texts = texts_for_test()
+        q = lambda s: {"id": s, "quote": f"Unique quote of {s} outlet about the bridge repair plan"}
+        d = json.loads(good())
+        d["agree"] = [{"text": "Обидва кажуть про міст.", "evidence": [q("a"), q("b")]}, {"text": "Один голос.", "evidence": [q("a")]}]
+        out = evening.parse(json.dumps(d), texts)
+        self.assertEqual(out["agree"], ["Обидва кажуть про міст."])
+        text = evening.fit(out, texts, NOW)
+        self.assertIn("Де сходяться", text)
+        self.assertIn("• Обидва кажуть про міст.", text)
+
+    def test_view_quote_shown_in_post(self):
+        texts = texts_for_test()
+        text = evening.fit(evening.parse(good(), texts), texts, NOW)
+        self.assertIn("«Unique quote of a outlet about the bridge repair plan»", text)
+
+    def test_exile_outlet_marked_not_russian_flag(self):
+        texts = texts_for_test()
+        texts["c"]["src"] = {"country": "Netherlands / Russia", "type": "independent_exile"}
+        texts["c"]["item"] = item("c", "Netherlands / Russia")
+        text = evening.fit(evening.parse(good(), texts), texts, NOW)
+        self.assertIn("🕊", text)
+        self.assertIn("(незалежне, у вигнанні)", text)
+        self.assertNotIn("🇷🇺", text)
+
+    def test_fit_drops_quotes_before_sections(self):
+        texts = texts_for_test()
+        d = evening.parse(good(), texts)
+        full = evening.render(d, texts, NOW)
+        text = evening.fit(d, texts, NOW, limit=len(full) - 40)
+        self.assertTrue(text is not None and len(text) <= len(full) - 40)
+        self.assertIn("Проста порада", text)

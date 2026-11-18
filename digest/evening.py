@@ -118,27 +118,30 @@ def pick_topic(st: State, now: datetime, items: list[Item], by_id: dict, ecfg: d
 
 # ---------- запит до моделі ----------
 VOICE = ("VOICE: lively, warm, ironic colloquial Ukrainian, like a sharp friend telling the news over tea: short sentences, direct address ('слухай', 'запам'ятай'), "
-         "dry humour and folk turns of phrase, headings with character. NEVER vulgar, no swearing. Humour lives ONLY in headings, transitions, the advice and the wish; "
-         "factual statements stay precise and plain. Never joke about victims, deaths, injuries or suffering. Do not quote or imitate any real person's songs or lyrics, "
-         "and do not attribute words to anyone who is not quoted in the articles.")
+         "dry humour and folk turns of phrase. The headings are the place for wit: each heading is a short folksy line with a twist (for example in the spirit of 'Хто що бачить, поки чайник википає', "
+         "'Де сходяться, а де розходяться', 'А тепер без прикрас'), never generic labels. NEVER vulgar, no slang like 'налупили', no swearing, no mocking tone about the war. "
+         "Humour lives ONLY in headings, transitions, the advice and the wish; factual statements stay precise and plain. Never joke about victims, deaths, injuries or suffering. "
+         "Do not quote or imitate any real person's songs or lyrics, and do not attribute words to anyone who is not quoted in the articles.")
 
 SYSTEM = """You are the author of the single daily EVENING REVIEW for a Ukrainian Telegram channel "РАДАР | Україна у світі": what the world's leading outlets say ABOUT UKRAINE.
-You get the FULL TEXTS of several articles on one story from outlets of different countries. Write one substantial analytical post in Ukrainian.
+You get the FULL TEXTS of several articles on one story from outlets of different countries. Write ONE substantial analytical post in Ukrainian that a reader would finish and share: concrete, insightful, never grey or generic.
 Rules:
 1. Facts ONLY from the provided texts. Never add facts, names, figures or quotes that are not there.
-2. EVIDENCE IS MANDATORY: every factual statement ("event", "views", "clash") must carry a short VERBATIM quote (at least 12 characters, copied exactly from that outlet's text, in the text's original language, no ellipses) with the outlet's id. Statements without a real quote will be deleted by a program. Numbers in your sentences must appear in the texts.
-3. "views": one item per outlet (3 to 5), each describing THAT outlet's own angle: what it stresses, whom it quotes, how it frames Ukraine or the event; not a repeat of the common facts. An outlet flagged state-funded is a government/state position, never established fact. Include sceptical or critical framings when the texts contain them; never add praise or opinions of your own.
-4. "clash": real conflicts only (different facts, claims, interpretations between outlets), each with quotes from at least two different outlets. If there are none, return an empty list. Never invent disagreement.
-5. "meaning": 2-3 sentences, YOUR OWN reading of what this means for Ukraine. It is labeled as an editorial reading in the post, so keep it hedged ("схоже", "можна припустити"), based only on the facts above, with no new facts.
-6. "watch": 2-3 short items about what to watch next, derived from the texts (upcoming events, open questions).
-7. "advice": one simple, human, practical piece of advice (one sentence), unrelated to taking political sides. "wish": one warm human wish (1-2 sentences); never promise the end of the war or anything political.
-8. "intro": 1-2 framing sentences, NO facts or numbers. "headline": at most 80 characters, names the story. "h": short headings (at most 55 characters, in the VOICE, plain text, no HTML) for the sections event, views, clash, meaning, watch, advice, wish.
-9. Be concise: the whole post must fit in about 3000 characters of Ukrainian. Each sentence at most 28 words.
+2. EVIDENCE IS MANDATORY: every factual statement ("event", "views", "agree", "clash") must carry a VERBATIM quote (12 to 150 characters, copied exactly from that outlet's text, in the text's original language, no ellipses) with the outlet's id. Statements without a real quote will be deleted by a program. Numbers in your sentences must appear in the texts. Prefer quotes that carry a concrete detail: a figure, a name, a place, a precise claim.
+3. "event": 3-4 sentences with the concrete facts: who, what, where, how many, what was said. Not vague summaries.
+4. "views": one item per outlet (3 to 5). Each item is 2-3 sentences about THAT outlet's own angle: what it stresses, whom it quotes, how it frames Ukraine or the event, what it leaves out. Not a repeat of common facts. Mention a concrete detail from its text. Its "quote" is shown to readers, so choose the most telling short fragment. An outlet flagged state-funded is a government/state position, never established fact. Include sceptical or critical framings when the texts contain them; never add praise or opinions of your own.
+5. "agree": 1-2 points on which at least two outlets agree (same fact or same assessment), each with quotes from two different outlets. "clash": real conflicts only (different facts, claims, interpretations), each with quotes from at least two different outlets. Empty lists are fine. Never invent agreement or disagreement.
+6. "meaning": 2-3 sentences, YOUR OWN reading of what this means for Ukraine. It is labelled as an editorial reading, so make it a clear thesis with reasoning drawn only from the facts above, no new facts; at most one hedge word in the whole paragraph, no vague filler.
+7. "watch": 2-3 short concrete items about what to watch next, derived from the texts (dates, decisions, open questions).
+8. "advice": one simple, human, practical sentence that follows from today's topic (information habits, planning, calm, caring for others), concrete and usable today; no clichés, no politics, no taking sides. "wish": one warm, human, specific wish (1-2 sentences), like a friend saying goodbye; never promise the end of the war or anything political.
+9. "intro": 1-2 framing sentences, NO facts or numbers. "headline": at most 80 characters, names the story. "h": short witty headings (at most 55 characters, in the VOICE, plain text, no HTML) for sections event, views, agree, clash, meaning, watch, advice, wish.
+10. Length: the whole post must be about 3200-3600 characters of Ukrainian (it must fit one Telegram message). Each sentence at most 28 words.
 {voice}
 Return JSON only:
-{{"same_event":true,"importance":1-10,"headline":"","intro":"","h":{{"event":"","views":"","clash":"","meaning":"","watch":"","advice":"","wish":""}},
+{{"same_event":true,"importance":1-10,"headline":"","intro":"","h":{{"event":"","views":"","agree":"","clash":"","meaning":"","watch":"","advice":"","wish":""}},
 "event":[{{"text":"","evidence":[{{"id":"","quote":""}}]}}],
 "views":[{{"id":"","text":"","quote":""}}],
+"agree":[{{"text":"","evidence":[{{"id":"","quote":""}},{{"id":"","quote":""}}]}}],
 "clash":[{{"text":"","evidence":[{{"id":"","quote":""}},{{"id":"","quote":""}}]}}],
 "meaning":[""],"watch":[""],"advice":"","wish":""}}"""
 
@@ -206,23 +209,26 @@ def parse(raw: str, texts: dict[str, dict]) -> dict:
     for x in items("views"):
         sid, txt = x.get("id"), _plain(x.get("text"), 400)
         if sid in texts and sid not in seen and txt and synth._quote_ok({"id": sid, "quote": x.get("quote")}, tn) and nums_ok(txt):
-            views.append({"id": sid, "text": txt})
+            q = _plain(x.get("quote"), 200)
+            views.append({"id": sid, "text": txt, "quote": q if 12 <= len(q) <= 160 else ""})
             seen.add(sid)
         else:
             dropped += 1
-    for x in items("clash"):
-        txt = _plain(x.get("text"), 450)
-        ids = {i for i in (synth._quote_ok(e, tn) for e in (x.get("evidence") or [])) if i}
-        if txt and len(ids) >= 2 and nums_ok(txt):
-            clash.append(txt)
-        else:
-            dropped += 1
+    agree = []
+    for key, bucket in (("agree", agree), ("clash", clash)):
+        for x in items(key):
+            txt = _plain(x.get("text"), 450)
+            ids = {i for i in (synth._quote_ok(e, tn) for e in (x.get("evidence") or [])) if i}
+            if txt and len(ids) >= 2 and nums_ok(txt):
+                bucket.append(txt)
+            else:
+                dropped += 1
     if len(event) < 2:
         raise BadReview(f"замало підтверджених фактів про подію ({len(event)})")
     if len(views) < 3:
         raise BadReview(f"замало підтверджених поглядів видань ({len(views)})")
     h = data.get("h") if isinstance(data.get("h"), dict) else {}
-    defaults = {"event": "Що сталося", "views": "Як це бачать у світі", "clash": "Де не сходяться", "meaning": "Що це означає для України", "watch": "За чим стежимо далі", "advice": "Проста порада", "wish": "І побажання"}
+    defaults = {"event": "Що сталося", "views": "Як це бачать у світі", "agree": "Де сходяться", "clash": "Де не сходяться", "meaning": "Що це означає для України", "watch": "За чим стежимо далі", "advice": "Проста порада", "wish": "І побажання"}
     heads = {k: (_plain(h.get(k), 60) or v) for k, v in defaults.items()}
     meaning = [m for m in (_plain(x, 400) for x in (data.get("meaning") or [])) if m][:3] if isinstance(data.get("meaning"), list) else []
     watch = [m for m in (_plain(x, 250) for x in (data.get("watch") or [])) if m][:3] if isinstance(data.get("watch"), list) else []
@@ -230,7 +236,7 @@ def parse(raw: str, texts: dict[str, dict]) -> dict:
         imp = int(data.get("importance", 6))
     except (TypeError, ValueError):
         imp = 6
-    return {"headline": head, "intro": _plain(data.get("intro"), 350), "heads": heads, "event": event, "views": views, "clash": clash, "meaning": meaning, "watch": watch,
+    return {"headline": head, "intro": _plain(data.get("intro"), 350), "heads": heads, "event": event, "views": views, "agree": agree, "clash": clash, "meaning": meaning, "watch": watch,
             "advice": _plain(data.get("advice"), 300), "wish": _plain(data.get("wish"), 350), "importance": imp, "dropped": dropped}
 
 
@@ -244,7 +250,8 @@ def render(d: dict, texts: dict[str, dict], now: datetime) -> str:
     for t in texts.values():
         if t["item"].country and t["item"].country not in countries:
             countries.append(t["item"].country)
-    flags = " ".join(telegram_fmt.FLAG.get(c, "🌐") for c in countries)
+    exile_c = {t["item"].country for t in texts.values() if t["src"].get("type") == "independent_exile"}
+    flags = " ".join([telegram_fmt.FLAG.get(c, "🌐") for c in countries if c not in exile_c] + (["🕊"] if exile_c else []))
     h = d["heads"]
     parts = [f"<b>{_esc(d['headline'].upper())}</b>", f"<i>Огляд світових медіа · {_kyiv(now):%d.%m}{(' · ' + flags) if flags else ''}</i>"]
     if d["intro"]:
@@ -254,8 +261,14 @@ def render(d: dict, texts: dict[str, dict], now: datetime) -> str:
     for v in d["views"]:
         t = texts[v["id"]]
         fl = telegram_fmt.FLAG.get(t["item"].country, "🌐")
-        views.append(f"{fl + ' ' if fl else ''}<i>{_esc(t['item'].source_name)}</i>. {_esc(v['text'])}")
+        exile = t["src"].get("type") == "independent_exile"
+        mark = "🕊" if exile else fl
+        who = f"<i>{_esc(t['item'].source_name)}</i>" + (" <i>(незалежне, у вигнанні)</i>" if exile else "")
+        quote = f" <i>«{_esc(v['quote'])}»</i>" if v.get("quote") else ""
+        views.append(f"{mark + ' ' if mark else ''}{who}. {_esc(v['text'])}{quote}")
     parts.append(f"<b>{_esc(h['views'])}</b>\n" + "\n".join(views))
+    if d.get("agree"):
+        parts.append(f"<b>{_esc(h['agree'])}</b>\n" + "\n".join("• " + _esc(x) for x in d["agree"]))
     if d["clash"]:
         parts.append(f"<b>{_esc(h['clash'])}</b>\n" + "\n".join(_esc(x) for x in d["clash"]))
     if d["meaning"]:
@@ -273,13 +286,20 @@ def render(d: dict, texts: dict[str, dict], now: datetime) -> str:
 
 def fit(d: dict, texts: dict[str, dict], now: datetime, limit: int = LIMIT) -> str | None:
     """Скорочує розбір (від менш важливого), поки не влізе в одне повідомлення. None — не вдалося."""
-    d = {**d, "event": list(d["event"]), "views": list(d["views"]), "clash": list(d["clash"]), "meaning": list(d["meaning"]), "watch": list(d["watch"])}
-    steps = (("watch", 2), ("meaning", 2), ("clash", 1), ("event", 3), ("views", 4), ("watch", 1), ("clash", 0), ("views", 3), ("event", 2))
+    d = {**d, "event": list(d["event"]), "views": [dict(v) for v in d["views"]], "agree": list(d.get("agree", [])), "clash": list(d["clash"]), "meaning": list(d["meaning"]), "watch": list(d["watch"])}
+    # спершу прибираємо цитати з тексту та другорядне, потім зменшуємо розділи
+    def drop_quotes(n):
+        for v in d["views"][n:]:
+            v["quote"] = ""
+    steps = (("watch", 2), ("agree", 1), ("meaning", 2), ("clash", 1), ("quotes", 3), ("quotes", 1), ("event", 3), ("views", 4), ("watch", 1), ("quotes", 0), ("clash", 0), ("agree", 0), ("views", 3), ("event", 2))
     text = render(d, texts, now)
     for key, n in steps:
         if len(text) <= limit:
             return text
-        d[key] = d[key][:n]
+        if key == "quotes":
+            drop_quotes(n)
+        else:
+            d[key] = d[key][:n]
         text = render(d, texts, now)
     return text if len(text) <= limit else None
 
@@ -296,7 +316,7 @@ def generate(texts: dict[str, dict], ecfg: dict, key: str, model: str | None = N
     attempt = 0
     while attempt < 2:
         try:
-            raw = call(system, prompt if attempt == 0 else prompt + "\n\nMake it SHORTER: about 2500 characters in total.", model, key)
+            raw = call(system, prompt if attempt == 0 else prompt + "\n\nMake it SHORTER: about 2800 characters in total.", model, key)
         except llm.LLMError as exc:
             if llm.is_busy(exc):
                 if model != fallback:
