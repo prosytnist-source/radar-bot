@@ -51,11 +51,25 @@ def clean(s: str) -> str:
     return html.unescape(" ".join(s.split())).strip(" ,;")
 
 
-LINE = re.compile(r"^\*+\s*(?:\[\[)?(\d{1,4})(?:\]\])?\s*(?:р\.|року)?\s*[—–:\-]\s*(.+)$")
+LINE = re.compile(r"^(?:\[\[)?(\d{1,4})(?:\]\])?\s*(?:р\.|року|рік|р)?\s*[—–:\-]+\s*(.+)$")
+
+
+def _line(ln: str):
+    """'* ...' → (рік, решта) або None. Терпимий до жирного/курсиву, &nbsp;, шаблонів, різних тире."""
+    ln = ln.strip()
+    if not ln.startswith("*"):
+        return None
+    ln = re.sub(r"^\*+\s*", "", ln)
+    ln = ln.replace("&nbsp;", " ").replace(" ", " ").replace("'" * 3, "").replace("'" * 2, "")
+    ln = re.sub(r"^\{\{\s*(\d{1,4})[^{}]*\}\}", r"\1", ln)
+    m = LINE.match(ln.strip())
+    if not m:
+        return None
+    return int(m.group(1)), m.group(2)
 
 
 def parse_day(wikitext: str) -> list[dict]:
-    """Рядки розділів «Події», «Народились», «Померли» → [{kind, year, text, link}] (link — стаття, на яку веде перше посилання після року)."""
+    """Рядки розділів «Події», «Народились», «Померли» → [{kind, year, text, link}] (link — перше посилання після року)."""
     out, kind = [], None
     for ln in wikitext.splitlines():
         h = re.match(r"^(=+)\s*(.+?)\s*\1\s*$", ln)
@@ -69,10 +83,10 @@ def parse_day(wikitext: str) -> list[dict]:
             continue
         if not kind:
             continue
-        m = LINE.match(ln.strip())
+        m = _line(ln)
         if not m:
             continue
-        year, rest = int(m.group(1)), m.group(2)
+        year, rest = m
         link = None
         lm = re.search(r"\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]", rest)
         if lm:
@@ -202,9 +216,11 @@ def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | No
         raise RuntimeError("Вікіпедія не віддала сторінку дня")
     items = parse_day(wt)
     if not items:
-        heads = re.findall(r"^=+\s*(.+?)\s*=+\s*$", wt, flags=re.M)[:8]
-        first = [ln[:50] for ln in wt.splitlines() if ln.startswith("*")][:2]
-        raise RuntimeError(f"не вдалося розібрати сторінку дня; розділи: {heads}; рядки: {first}")
+        lines = wt.splitlines()
+        heads = re.findall(r"^=+\s*(.+?)\s*=+\s*$", wt, flags=re.M)[:10]
+        i = next((n for n, l in enumerate(lines) if re.match(r"^=+\s*Події", l)), 0)
+        sample = [l[:80] for l in lines[i + 1:i + 8] if l.strip()][:4]
+        raise RuntimeError(f"не вдалося розібрати сторінку дня; розділи: {heads}; після «Події»: {sample}")
     cands = pick(candidates(items, kind, today), set(used), today)
     for cand in cands[:8]:
         src = summary(cand["link"], fetch) if cand.get("link") else {}
