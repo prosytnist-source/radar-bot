@@ -1,5 +1,5 @@
 """Щовечірня рубрика «Котик дня» (22:00): нове миле й кумедне зображення кота.
-Генерація мультяшного зображення моделлю Gemini (назву моделі шукаємо серед доступних). Запасне фото справжнього кота
+Генерація мультяшного зображення моделлю Gemini (запасно — безкоштовний Pollinations) (назву моделі шукаємо серед доступних). Запасне фото справжнього кота
 (The Cat API, CATAAS) — лише якщо allow_photo=True; за замовчуванням вимкнено, бо потрібен мультяшний стиль. Підпис — коротка тепла фраза з готового списку (нічого не вигадується моделлю)."""
 from __future__ import annotations
 
@@ -66,7 +66,6 @@ def _gen_models(key: str, call=llm._call) -> list[str]:
 def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     """Картинка від моделі або None."""
     t0 = time.monotonic()
-    last_error.clear()
     models = _gen_models(key, call)
     last_error.append(f"моделі для малювання: {models[:3]}")
     for model in models[:2]:
@@ -89,7 +88,9 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
                 body = exc.read().decode("utf-8", "replace")[:200]  # type: ignore[attr-defined]
             except Exception:  # noqa: BLE001
                 pass
-            last_error.append(f"{model}: {str(exc)[:80]} {body}".strip())
+            last_error.append(f"{model}: {str(exc)[:60]} {body[:60]}".strip())
+            if "429" in str(exc):
+                break  # квота вичерпана/відсутня — друга модель теж не допоможе
             continue
     return None
 
@@ -97,6 +98,22 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
 def _get(url: str, timeout: int = 25) -> bytes:
     with urlopen(Request(url, headers=UA), timeout=timeout) as r:  # noqa: S310
         return r.read()
+
+
+def pollinations(prompt_en: str, d: date, get=_get) -> bytes | None:
+    """Безкоштовне малювання без ключа (image.pollinations.ai). Стиль — мультяшний."""
+    from urllib.parse import quote
+    text = f"funny adorable cartoon cat character, {prompt_en}, colorful 2D cartoon, bold clean outlines, big expressive eyes, children's book sticker style, no text"
+    url = f"https://image.pollinations.ai/prompt/{quote(text)}?width=1024&height=1024&nologo=true&model=flux&seed={d.toordinal()}"
+    try:
+        raw = get(url, 70)
+    except Exception as exc:  # noqa: BLE001
+        last_error.append(f"pollinations: {str(exc)[:80]}")
+        return None
+    if len(raw) > 5000 and (raw[:3] == b"\xff\xd8\xff" or raw[:4] == b"\x89PNG"):
+        return raw
+    last_error.append("pollinations: відповідь не є зображенням")
+    return None
 
 
 def stock_photo(get=_get) -> bytes | None:
@@ -121,15 +138,19 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     """→ (шлях, підпис, походження) або None."""
     prompt, line = theme_for(today)
     img, origin = None, ""
+    last_error.clear()
     if key:
         img = generate(prompt, key, call)
         origin = "ШІ-картинка"
+    if img is None:
+        img = pollinations(prompt, today, get)
+        origin = "малюнок Pollinations (безкоштовний сервіс)"
     if img is None and allow_photo:
         img = stock_photo(get)
         origin = "фото з відкритого сервісу (ШІ-картинка недоступна)"
     if img is None:
-        if key and last_error:
-            raise RuntimeError("Gemini не намалював котика. " + " | ".join(last_error)[:420])
+        if last_error:
+            raise RuntimeError("Котик не намалювався. " + " | ".join(last_error)[:420])
         return None
     path = pathlib.Path(out_dir) / f"cat-{today.isoformat()}.jpg"
     path.write_bytes(img)

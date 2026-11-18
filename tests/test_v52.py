@@ -129,5 +129,9 @@ class CatTests(unittest.TestCase):
             r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=get, allow_photo=True)
             self.assertIn("недоступна", r[2])
             with self.assertRaises(RuntimeError):
-                cat.build(date(2026, 11, 18), "k", d, call=bad, get=get)
-            self.assertIsNone(cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError())))
+                cat.build(date(2026, 11, 18), "k", d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError("net")))
+            jpg = b"\xff\xd8\xff" + b"z" * 6000
+            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=lambda u, t=25: jpg)
+            self.assertIn("Pollinations", r[2])
+            with self.assertRaises(RuntimeError):
+                cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError()))
