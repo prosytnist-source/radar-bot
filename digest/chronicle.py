@@ -251,9 +251,16 @@ def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | No
         occ = occasion(cand, today)
         life = ""
         if kind == "figure":
-            m = re.search(r"\(([^()]*?\d{4}[^()]*?[–—-][^()]*?\d{4}[^()]*?)\)", src.get("extract", "")[:300])
-            years = re.findall(r"\d{4}", m.group(1)) if m and not re.search(r"бл\.|\?|~|прибл", m.group(1)) else []
-            life = f"{years[0]}–{years[-1]}" if len(years) >= 2 else ""
+            years = []
+            for pm in re.finditer(r"\(([^()]{6,90})\)", src.get("extract", "")[:350]):
+                body = pm.group(1)
+                if re.search(r"бл\.|\?|~|прибл|нар\.|помер", body):
+                    continue
+                m2 = re.match(r"^\s*(?:\d{1,2}\s+[а-яіїєґ]+\s+)?(\d{4})[^—–\-\d]{0,40}[—–\-]\s*(?:\d{1,2}\s+[а-яіїєґ]+\s+)?(\d{4})[^—–\-\d]{0,40}$", body)
+                if m2:
+                    years = [m2.group(1), m2.group(2)]
+                    break
+            life = f"{years[0]}–{years[1]}" if years else ""
         caption = f"<b>{html.escape(title, quote=False)}</b>\n"
         if life:
             caption += f"<i>{life}</i>\n"
