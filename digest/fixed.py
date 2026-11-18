@@ -1,5 +1,5 @@
 """Щоденні фіксовані пости: свято, курс НБУ, ціни на пальне, хвилина мовчання (картка + короткий підпис).
-  python3 -m digest.fixed --kind holiday|rates|fuel|silence [--dry] [--now 'YYYY-MM-DDTHH:MM' UTC] [--force]
+  python3 -m digest.fixed --kind holiday|rates|fuel|figure|fact [--dry] [--now 'YYYY-MM-DDTHH:MM' UTC] [--force]
 Правила: на паузі (/stop) не публікує; не публікує повторно за ту саму дату; запізнившись надто сильно — пропускає;
 помилка джерела — нічого не публікує, а надсилає власнику коротке повідомлення (вигаданих чисел не буває)."""
 from __future__ import annotations
@@ -22,8 +22,8 @@ from .state import State
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARDS = ROOT / "assets" / "cards"
 TZ = "Europe/Kyiv"
-TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0)}
-LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1}  # хвилини: пізніше — пропускаємо
+TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "fact": (17, 0)}
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "fact": 300}  # хвилини: пізніше — пропускаємо
 MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
 NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
 FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
@@ -170,6 +170,44 @@ def silence_post(d: date):
     return CARDS / "silence.jpg", text
 
 
+# ---------- рубрики «Визначні постаті» і «Історичний факт» ----------
+RUBRICS = ROOT / "rubrics.json"
+RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт"}
+
+
+def rubric_mode(kind: str) -> str:
+    """'preview' — надсилати лише власнику (пробний показ), 'live' — у канал."""
+    try:
+        return json.loads(RUBRICS.read_text(encoding="utf-8")).get(kind, "preview")
+    except (OSError, json.JSONDecodeError):
+        return "preview"
+
+
+def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = None, call=None):
+    from . import card, chronicle, llm
+    used_file = st.dir / "chronicle.json"
+    try:
+        used = json.loads(used_file.read_text(encoding="utf-8")).get("used", [])
+    except (OSError, json.JSONDecodeError):
+        used = []
+    if key is None:
+        try:
+            key = llm.load_key()
+        except llm.LLMError:
+            key = None  # без ключа — дослівний уривок із Вікіпедії
+    res = chronicle.build(kind, d, [u["k"] for u in used], fetch or chronicle.get_json, key, call or llm.generate_json)
+    if res is None:
+        return None
+    out = pathlib.Path("/tmp") / f"rubric-{kind}-{d.isoformat()}.jpg"
+    glyph, accent = ("person", "figure") if kind == "figure" else ("clock", "history")
+    if card.available():
+        card.render(res["title"], out, subtitle=res["subtitle"], chips=res["chips"], kind=accent, glyph=glyph)
+    else:
+        out = CARDS / "holiday-1.jpg"
+    used = [u for u in used if u["d"] >= (d - timedelta(days=400)).isoformat()] + [{"k": res["key"], "d": d.isoformat()}]
+    return out, res["caption"], used_file, used
+
+
 # ---------- запуск ----------
 def due(kind: str, now: datetime) -> tuple[bool, str]:
     z = now.astimezone(ZoneInfo(TZ))
@@ -219,11 +257,21 @@ def main(argv=None) -> int:
             res = fuel_post(today, st)
             extra = res[2]
             res = res[:2]
+        elif a.kind in RUBRIC_NAMES:
+            r = rubric_post(a.kind, today, st)
+            if r is None:
+                raise RuntimeError("не знайшлося підходящого запису на сьогодні")
+            res, extra = r[:2], r[2:]
         else:
             res = silence_post(today)
     except Exception as exc:  # noqa: BLE001
         msg = f"⚠️ РАДАР: пост «{a.kind}» не вийшов ({str(exc)[:150]}). Нічого не опубліковано."
         print(msg, file=sys.stderr)
+        if a.kind in RUBRIC_NAMES and marks.get("alert-" + a.kind) == today.isoformat():
+            return 0  # про збій рубрики повідомляємо раз на добу; наступні спроби тихі
+        if a.kind in RUBRIC_NAMES and not a.dry:
+            marks["alert-" + a.kind] = today.isoformat()
+            mark_file.write_text(json.dumps(marks), encoding="utf-8")
         if not a.dry:
             try:
                 publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), html.escape(msg, quote=False))
@@ -237,12 +285,20 @@ def main(argv=None) -> int:
     if a.dry:
         print(card, "\n", caption)
         return 0
-    publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), card, caption)
+    if a.kind in RUBRIC_NAMES:
+        preview = rubric_mode(a.kind) != "live"
+        chat = publish.env("TELEGRAM_OWNER_ID") if preview else publish.env("TELEGRAM_CHAT_ID")
+        cap = (f"<b>👀 Пробний показ рубрики «{RUBRIC_NAMES[a.kind]}»</b> (у канал не йде)\n\n" if preview else "") + caption
+        publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), chat, card, cap)
+        extra[0].write_text(json.dumps({"used": extra[1]}, ensure_ascii=False), encoding="utf-8")
+        extra = None
+    else:
+        publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), card, caption)
     marks[a.kind] = today.isoformat()
     mark_file.write_text(json.dumps(marks), encoding="utf-8")
     if extra:
         (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
-    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання"}[a.kind], now)
+    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт"}[a.kind], now)
     print("Опубліковано:", a.kind)
     return 0
 

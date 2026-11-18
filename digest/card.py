@@ -7,7 +7,7 @@ import pathlib
 
 W, H = 1280, 720
 FONTS = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf", "/Library/Fonts/Arial Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"]
-ACCENT = {"news": (232, 142, 42), "poll": (74, 158, 255), "top": (122, 201, 134), "evening": (176, 124, 255)}
+ACCENT = {"news": (232, 142, 42), "poll": (74, 158, 255), "top": (122, 201, 134), "evening": (176, 124, 255), "figure": (240, 196, 72), "history": (64, 190, 175)}
 
 
 def available() -> bool:
@@ -43,7 +43,7 @@ def wrap(draw, text: str, font, width: int, max_lines: int) -> list[str]:
     return lines
 
 
-def render(title: str, out: str | pathlib.Path, subtitle: str = "", chips: list[str] | None = None, kind: str = "news") -> pathlib.Path:
+def render(title: str, out: str | pathlib.Path, subtitle: str = "", chips: list[str] | None = None, kind: str = "news", glyph: str = "radar") -> pathlib.Path:
     from PIL import Image, ImageDraw
     acc = ACCENT.get(kind, ACCENT["news"])
     img = Image.new("RGB", (W, H), (8, 8, 10))
@@ -67,10 +67,19 @@ def render(title: str, out: str | pathlib.Path, subtitle: str = "", chips: list[
     d.rounded_rectangle(box, radius=70, fill=acc + (255,))
     d.rounded_rectangle((box[0], box[1], box[2], box[1] + 150), radius=70, fill=(255, 255, 255, 38))
     mx, my = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
-    for r in (150, 100, 50):
-        d.ellipse((mx - r, my - r, mx + r, my + r), outline=(255, 255, 255, 255), width=12)
-    d.pieslice((mx - 150, my - 150, mx + 150, my + 150), -60, -20, fill=(255, 255, 255, 120))
-    d.ellipse((mx - 14, my - 14, mx + 14, my + 14), fill=(255, 255, 255, 255))
+    if glyph == "person":  # силует: голова й плечі
+        d.ellipse((mx - 62, my - 130, mx + 62, my - 6), fill=(255, 255, 255, 255))
+        d.pieslice((mx - 135, my + 14, mx + 135, my + 284), 180, 360, fill=(255, 255, 255, 255))
+    elif glyph == "clock":  # годинник: час, що минув
+        d.ellipse((mx - 150, my - 150, mx + 150, my + 150), outline=(255, 255, 255, 255), width=14)
+        d.line((mx, my, mx, my - 100), fill=(255, 255, 255, 255), width=14)
+        d.line((mx, my, mx + 72, my + 42), fill=(255, 255, 255, 255), width=14)
+        d.ellipse((mx - 16, my - 16, mx + 16, my + 16), fill=(255, 255, 255, 255))
+    else:
+        for r in (150, 100, 50):
+            d.ellipse((mx - r, my - r, mx + r, my + r), outline=(255, 255, 255, 255), width=12)
+        d.pieslice((mx - 150, my - 150, mx + 150, my + 150), -60, -20, fill=(255, 255, 255, 120))
+        d.ellipse((mx - 14, my - 14, mx + 14, my + 14), fill=(255, 255, 255, 255))
     # праворуч: RADAЯ, лінія, заголовок
     x0, x1 = 660, 1230
     d.text((x0, 82), "RADAЯ", font=_font(46), fill=(255, 255, 255, 255))

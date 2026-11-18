@@ -7,10 +7,12 @@ on:
     - cron: "0 4 * * *"    # 06:00 Київ — свято
     - cron: "30 4 * * *"   # 06:30 — курс НБУ
     - cron: "0 5 * * *"    # 07:00 — пальне
+    - cron: "0 10 * * *"   # 12:00 — Визначні постаті
+    - cron: "0 15 * * *"   # 17:00 — Історичний факт
   workflow_dispatch:
     inputs:
       kind:
-        description: "holiday | rates | fuel"
+        description: "holiday | rates | fuel | figure | fact"
         default: "rates"
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
@@ -36,6 +38,8 @@ jobs:
             "0 4 * * *") K=holiday ;;
             "30 4 * * *") K=rates ;;
             "0 5 * * *") K=fuel ;;
+            "0 10 * * *") K=figure ;;
+            "0 15 * * *") K=fact ;;
             *) K="${{ github.event.inputs.kind }}" ;;
           esac
           echo "kind=$K" >> "$GITHUB_OUTPUT"
@@ -44,6 +48,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           F=""
           if [ "${{ github.event.inputs.force }}" = "true" ]; then F="--force"; fi

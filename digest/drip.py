@@ -137,10 +137,10 @@ def silence_delay(now_kyiv: datetime) -> float:
 
 
 def fixed_tick(a, poll: float, end: float, last_try: dict) -> None:
-    """Щоденні пости (свято, курс, пальне) зсередини безперервного запуску. «Хвилину мовчання» прибрано за рішенням власника."""
+    """Щоденні пости (свято, курс, пальне, «Визначні постаті» 12:00, «Історичний факт» 17:00) зсередини безперервного запуску. «Хвилину мовчання» прибрано за рішенням власника."""
     from . import fixed
     now = time.time()
-    for kind in ("holiday", "rates", "fuel"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
+    for kind in ("holiday", "rates", "fuel", "figure", "fact"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
         if now - last_try.get(kind, 0) >= 600:
             last_try[kind] = now
             fixed.main(["--kind", kind])
