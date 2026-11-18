@@ -104,6 +104,14 @@ class T(unittest.TestCase):
 
 
 
+class CatEveningTests(unittest.TestCase):
+    def test_captions_fit_22h(self):
+        from digest import cat
+        bad = ("Доброго", "Добрий ранок", "ранку,", "Понеділок", "П'ятниця", "Перша кава", "Сніданок —")
+        for r, sc, ln in cat._pool():
+            self.assertFalse(any(w in ln for w in bad), ln)
+
+
 class CatBrandTests(unittest.TestCase):
     def test_mark_and_scene(self):
         import os, tempfile
