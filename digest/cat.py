@@ -29,12 +29,14 @@ STYLE = ("Ultra-detailed 3D animated film still, premium Pixar-quality rendering
          "Hyper-detailed individual fur strands and long visible whiskers. Square 1:1. "
          "Recurring brand details: a cream mug or object with a small black paw-print logo; in indoor scenes a dark navy wall with a gold-framed picture of a peace-sign hand, a shelf with books, a plant and a warm lamp. "
          "NOT a children's storybook, NOT a plush toy look, NOT a full-body centered frontal pose, NOT fat, no wide-open mouth. No text, no letters, no watermark.")
-FRAMING = ("MANDATORY FRAMING (highest priority, overrides the scene wording): the camera is very close with a wide-angle lens and a low angle; "
-           "the cat fills at least 70 percent of the frame and is the clear hero, background is only a backdrop; NEVER a distant or aerial shot, NEVER a tiny cat. "
-           "Dynamic full-body action pose with bent knees and elbows, never stiff or hanging like a doll; wind or motion in the fur and whiskers, fluffy tail visible; "
-           "a vivid alive facial emotion (blissful closed-eye grin or a smug sideways glance). "
-           "Realistic real-world objects and gear (a real paraglider canopy with proper lines, real skateboard, real food) - never toy-like. "
-           "Rich tactile detail: individual fur strands, fabric texture of the hoodie and jeans. Sharp detailed background with natural saturated colors and strong contrast, no milky haze or fog.")
+FRAMING = ("MANDATORY FRAMING (highest priority, overrides the scene wording): EXTREME CLOSE-UP hero shot, camera a meter from the cat, wide-angle lens, low angle. "
+           "The cat's head and upper body fill about 75 percent of the frame; paws, tail, legs and props may be cropped by the frame edges - that is good. "
+           "Large objects from the scene (a parachute canopy, buildings, mountains) are only partly visible, cropped or far behind as a backdrop. "
+           "NEVER a distant, aerial or wide shot, NEVER a small cat with lots of empty background. "
+           "Dynamic alive pose, never stiff or hanging like a doll; wind or motion in the fur and whiskers; "
+           "a vivid facial emotion (blissful closed-eye grin or a smug sideways glance). "
+           "Realistic real-world objects and gear (a real paraglider with proper lines, real skateboard, real food) - never toy-like. "
+           "Rich tactile detail: individual fur strands, fabric texture of the hoodie and jeans. Sharp detailed background with natural saturated colors and strong contrast, no milky haze.")
 ROLES = {
     0: ("Кіт на роботі", [
         ("slouched at a desk in front of a laptop late in the evening, a steaming mug nearby, tired but proud smirk, city lights in the window behind", "Робочий день завершено. Я молодець."),
@@ -192,6 +194,20 @@ def stock_photo(get=_get) -> bytes | None:
     return None
 
 
+def upscale(path, target: int = 2048) -> None:
+    """Якщо картинка менша за 2048 px — збільшуємо (LANCZOS) з легким підвищенням різкості. Без Pillow — пропуск."""
+    try:
+        from PIL import Image, ImageFilter
+        im = Image.open(path).convert("RGB")
+    except Exception:  # noqa: BLE001
+        return
+    if im.width >= target:
+        return
+    k = target / im.width
+    im = im.resize((target, int(im.height * k)), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=2, percent=70, threshold=3))
+    im.save(path, "JPEG", quality=92)
+
+
 def brand_mark(path) -> None:
     """Накласти знак «відбиток лапки + КІТ-РАДАР» у правий нижній кут (малюємо самі: текст від моделі ненадійний). Без Pillow — пропускаємо."""
     try:
@@ -236,6 +252,10 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     """→ (шлях, підпис, походження) або None."""
     role, prompt, line = theme_for(today)
     custom = os.environ.get("CAT_SCENE", "").strip()
+    if custom.lower() in ("random", "рандом", "випадкова"):  # випадкова сцена з усього списку
+        import random
+        role, (prompt, line) = random.choice([(r, sc) for r, scs in ROLES.values() for sc in scs])
+        custom = ""
     if custom:  # ручна проба зі сценою від користувача (будь-якою мовою)
         role, prompt, line = "Кіт-Радар", custom, "Кіт-Радар на зв'язку."
     img, origin = None, ""
@@ -257,6 +277,7 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
         return None
     path = pathlib.Path(out_dir) / f"cat-{today.isoformat()}.jpg"
     path.write_bytes(img)
+    upscale(path)
     brand_mark(path)
     caption = f"<b>Кіт-Радар 🐱</b> · {role}\n{line}"
     return path, caption, origin
