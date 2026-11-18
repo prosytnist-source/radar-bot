@@ -22,8 +22,8 @@ from .state import State
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARDS = ROOT / "assets" / "cards"
 TZ = "Europe/Kyiv"
-TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "culture": (14, 0), "fact": (17, 0), "cat": (22, 0)}
-LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "culture": 300, "fact": 300, "cat": 180}  # хвилини: пізніше — пропускаємо
+TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "culture": (14, 0), "ask": (16, 0), "fact": (17, 0), "expert": (21, 0), "cat": (22, 0)}
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "culture": 300, "ask": 240, "fact": 300, "expert": 150, "cat": 180}  # хвилини: пізніше — пропускаємо
 MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
 NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
 FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
@@ -304,6 +304,30 @@ def main(argv=None) -> int:
             print(why)
             return 0
     extra = None
+    if a.kind in ("ask", "expert"):
+        from . import askcat, llm
+        try:
+            try:
+                key = llm.load_key()
+            except llm.LLMError:
+                key = None
+            msg = askcat.run(a.kind, now, st, key, rubric_mode(a.kind) != "live", a.dry) if not a.dry else "(пробний запуск: нічого не надіслано)"
+        except BaseException as exc:  # noqa: BLE001
+            print(f"⚠️ РАДАР: «{a.kind}» не вийшло ({str(exc)[:300]})", file=sys.stderr)
+            if not a.dry and (a.force or marks.get("alert-" + a.kind) != today.isoformat()):
+                marks["alert-" + a.kind] = today.isoformat()
+                mark_file.write_text(json.dumps(marks), encoding="utf-8")
+                try:
+                    publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), html.escape(f"⚠️ РАДАР: «{a.kind}» не вийшло ({str(exc)[:300]})", quote=False))
+                except BaseException:  # noqa: BLE001
+                    pass
+            return 0
+        print(msg)
+        if not a.dry:
+            marks[a.kind] = today.isoformat()
+            mark_file.write_text(json.dumps(marks), encoding="utf-8")
+            st.log_event("sent", {"ask": "Питання дня", "expert": "Експертна думка кота"}[a.kind], now)
+        return 0
     try:
         if a.kind == "holiday":
             res = holiday_post(today)

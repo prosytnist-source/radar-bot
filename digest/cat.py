@@ -318,6 +318,8 @@ BANNERS = {
     "fuel": ("Пальне", "wide 16:9 composition: cat in a hoodie holding a fuel nozzle at a modern gas station at blue dusk, a sleek car behind, a glowing blurred price sign in the distance, raised eyebrow, skeptical smug glance"),
     "figure": ("Визначні постаті", "wide 16:9 composition: cat in a dark blazer over a white shirt standing proudly beside a classic marble bust on a pedestal, holding an open old book, dignified proud smile, warm library with shelves and a brass lamp"),
     "culture": ("Культурні діячі", "wide 16:9 composition: cat in a black turtleneck and a scarf in a warm theater foyer, holding an old poetry book and a theater program, framed portraits and golden theater lights behind, refined proud smug sideways glance"),
+    "ask": ("Питання дня", "wide 16:9 composition: cat as a friendly street pollster in a hoodie, holding a retro microphone in one paw and a tablet in the other, leaning toward the viewer with a curious raised eyebrow, warm blurred city street with soft lights behind, bright inviting mood"),
+    "expert": ("Експертна думка", "wide 16:9 composition: cat expert in a dark blazer and round glasses sitting in a leather armchair in a warm TV-studio set with bookshelves and a lamp, one paw raised thoughtfully, calm authoritative smug glance, warm contrast lighting"),
     "fact": ("Історичний факт", "wide 16:9 composition: cat with a magnifying glass studying an old unrolled map and parchment scrolls on a wooden table, an hourglass and a candle, curious thoughtful sideways glance, warm candlelight"),
 }
 

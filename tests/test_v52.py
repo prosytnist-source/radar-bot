@@ -112,6 +112,44 @@ class CatEveningTests(unittest.TestCase):
             self.assertFalse(any(w in ln for w in bad), ln)
 
 
+class AskTests(unittest.TestCase):
+    def test_pick_no_repeat_and_all_valid(self):
+        from datetime import date
+        from digest import askcat
+        n = len(askcat.pool())
+        self.assertEqual(n, 36)
+        base = n * 1000
+        seen = {askcat.pick(date.fromordinal(base + i))[0] for i in range(n)}
+        self.assertEqual(len(seen), n)
+        for sph, q, opts in askcat.pool():
+            self.assertEqual(len(opts), 4); self.assertLessEqual(len(q), 300)
+            self.assertTrue(all(len(o) <= 100 for o in opts))
+
+    def test_expert_and_weekly(self):
+        import json, tempfile, pathlib
+        from datetime import datetime, timezone
+        from digest import askcat
+        from digest.state import State
+        d = pathlib.Path(tempfile.mkdtemp()); st = State(d)
+        sent = []
+        def api(method, token, params=None):
+            if method == "sendPoll":
+                return {"result": {"message_id": 5}}
+            return {"result": {"total_voter_count": 10, "options": [{"voter_count": 6}, {"voter_count": 2}, {"voter_count": 2}, {"voter_count": 0}]}}
+        now = datetime(2026, 11, 22, 14, 0, tzinfo=timezone.utc)  # неділя
+        askcat.run_ask(st, now, "t", "c", api=api, send_photo=lambda *a: sent.append(a))
+        good = lambda s, p, m, k, retries=1, timeout=35: json.dumps({"text": "Найбільше голосів, 60%, за перший варіант. Це наш вибір на сьогодні, тож не поспішайте з висновками й перевіряйте на власному досвіді."})
+        msg = askcat.run_expert(st, now, "t", "c", "k", api=api, send_photo=lambda *a: sent.append(a), send=lambda *a: sent.append(a), call=good)
+        self.assertIn("голосів 10", msg)
+        bad = lambda s, p, m, k, retries=1, timeout=35: json.dumps({"text": "Вісімдесят відсотків і 77% людей згодні, тож це точно найкращий вибір для всіх вас без винятків."})
+        st2 = State(pathlib.Path(tempfile.mkdtemp()))
+        askcat.run_ask(st2, now, "t", "c", api=api, send_photo=lambda *a: None)
+        askcat.run_expert(st2, now, "t", "c", "k", api=api, send_photo=lambda *a: sent.append(a), send=lambda *a: sent.append(a), call=bad)  # цифра 77 не з даних → запасний текст
+        self.assertNotIn("77%", str(sent[-1]))
+        rep = askcat.weekly_report(st, now)
+        self.assertIn("Тижнева статистика", rep); self.assertIn("60% з 10", rep)
+
+
 class CultureTests(unittest.TestCase):
     def test_build_no_repeat_and_quote(self):
         from digest import culture
