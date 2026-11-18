@@ -83,11 +83,39 @@ ROLES = {
 }
 
 
+EXTRA = [
+    ("Кіт-спортсмен", "a lively gym scene: lifting a dumbbell with a proud smug grin, towel around the neck, gym lights", "Сьогодні — день ніг. Завтра — день «чому все болить»."),
+    ("Кіт-спортсмен", "jogging in a park at sunrise in a sports hoodie and headphones, breathing out a cloud of steam, golden light", "Пробіжка закінчена. Кава — заслужена."),
+    ("Кіт-спортсмен", "doing yoga on a mat by a big window, eyes closed in a calm smile, one leg raised, soft morning light", "Баланс — це коли кава й спокій зустрілись."),
+    ("Кіт-відрядження", "pulling a cabin suitcase through a busy airport terminal with a travel pillow around the neck, sleepy smug smile, departure board bokeh", "Відрядження: валіза готова, кава ні."),
+    ("Кіт-відрядження", "looking out the window of a fast train at passing landscapes with a coffee cup, dreamy content smile, golden hour", "Дорога — це теж робота. Принаймні так я скажу бухгалтеру."),
+    ("Кіт-відрядження", "checking into a hotel room, bouncing on a huge white bed with arms spread, delighted closed-eye grin", "Готель. Тиша. Подушок забагато — саме те."),
+    ("Кіт-гігієна", "brushing teeth in front of a bathroom mirror in a hoodie, foamy toothpaste, sleepy half-open eyes, morning light", "Ранок починається з усмішки. Хай і з пастою."),
+    ("Кіт-гігієна", "washing his face at a sink with water splashes flying, eyes squeezed shut, towel on the shoulder, bright bathroom", "Умиватися — це як перезавантажитись."),
+    ("Кіт-сніданок", "making toast and eggs at a kitchen counter, humming happily, steam rising from a pan, cozy morning light", "Сніданок — найкращий початок будь-якої історії."),
+    ("Кіт-сніданок", "sitting at a breakfast table with croissants and a big cup of coffee, eyes closed inhaling the aroma, blissful smile", "Перша кава. Усе інше потім."),
+    ("Кіт-новини", "reading the news on a tablet with a coffee mug, one eyebrow raised in mild surprise, cozy armchair, warm lamp", "Новини прочитав. Кава допомагає перетравити."),
+    ("Кіт-новини", "holding a newspaper wide open and peeking over it with a knowing smirk, round glasses, morning kitchen light", "Заголовки читаю. Висновки роблю сам."),
+    ("Кіт-хобі", "playing an acoustic guitar on a sofa with closed eyes and a dreamy smile, warm lamp light, wooden shelves", "Три акорди — і я вже рок-зірка."),
+    ("Кіт-хобі", "painting on a small canvas at an easel with a brush in the mouth corner, paint on the cheek, bright studio", "Мистецтво вимагає жертв. Особливо худі."),
+    ("Кіт-хобі", "taking a photo with a vintage camera at a street, one eye squinting, golden hour city bokeh", "Кадр дня. І ще дев'ятнадцять про запас."),
+    ("Кіт-офіс", "sitting in a modern open-space office, stacked with sticky notes on the monitor, deadpan stressed grin, fluorescent bokeh", "Дедлайн — це коли час нарешті стає цікавим."),
+    ("Кіт-офіс", "high-fiving a colleague's paw in a bright office after a successful meeting, huge proud grin", "Домовились! Навіть без «можна на пошту»."),
+]
+
+
+def _pool() -> list[tuple[str, str, str]]:
+    return [(r, sc, ln) for r, scs in ROLES.values() for sc, ln in scs] + EXTRA
+
+
 def theme_for(d: date) -> tuple[str, str, str]:
-    """(амплуа, сцена англійською, підпис) за днем тижня; сцени в межах амплуа чергуються по тижнях."""
-    role, scenes = ROLES[d.weekday()]
-    scene, line = scenes[(d.toordinal() // 7) % len(scenes)]
-    return role, scene, line
+    """(амплуа, сцена англійською, підпис): випадкова, але без повторів у межах кола — день за днем проходимо весь список у перемішаному порядку (порядок залежить від номера кола)."""
+    import random
+    pool = _pool()
+    n = d.toordinal()
+    order = list(range(len(pool)))
+    random.Random(n // len(pool)).shuffle(order)
+    return pool[order[n % len(pool)]]
 
 
 def _gen_models(key: str, call=llm._call) -> list[str]:
@@ -254,10 +282,10 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     custom = os.environ.get("CAT_SCENE", "").strip()
     if custom.lower() in ("random", "рандом", "випадкова"):  # випадкова сцена з усього списку
         import random
-        role, (prompt, line) = random.choice([(r, sc) for r, scs in ROLES.values() for sc in scs])
+        role, prompt, line = random.choice(_pool())
         custom = ""
     if custom:  # ручна проба зі сценою від користувача (будь-якою мовою)
-        role, prompt, line = "Кіт-Радар", custom, "Кіт-Радар на зв'язку."
+        role, prompt, line = "Кіт-Радар", custom, "На зв'язку."
     img, origin = None, ""
     last_error.clear()
     if key:
@@ -279,5 +307,5 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     path.write_bytes(img)
     upscale(path)
     brand_mark(path)
-    caption = f"<b>Кіт-Радар 🐱</b> · {role}\n{line}"
+    caption = f"<b>Радар 🐱</b>\n{line}"
     return path, caption, origin
