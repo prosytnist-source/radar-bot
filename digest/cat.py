@@ -1,6 +1,5 @@
 """Щовечірня рубрика «Котик дня» (22:00): нове миле й кумедне зображення кота.
-Генерація мультяшного зображення моделлю Gemini (запасно — безкоштовний Pollinations) (назву моделі шукаємо серед доступних). Запасне фото справжнього кота
-(The Cat API, CATAAS) — лише якщо allow_photo=True; за замовчуванням вимкнено, бо потрібен мультяшний стиль. Підпис — коротка тепла фраза з готового списку (нічого не вигадується моделлю)."""
+Генерація мультяшного зображення моделлю Gemini зі зразками стилю (assets/cat). Безкоштовні запасні варіанти (Pollinations, фото) вимкнені: їхня якість нижча (назву моделі шукаємо серед доступних). Запасні варіанти allow_free / allow_photo за замовчуванням вимкнені. Підпис — коротка тепла фраза з готового списку (нічого не вигадується моделлю)."""
 from __future__ import annotations
 
 import base64
@@ -16,31 +15,31 @@ UA = {"User-Agent": "RadarBot/1.0 (https://github.com/prosytnist-source/radar-bo
 BUDGET = 150
 last_error: list[str] = []
 
-# (що намалювати англійською, підпис українською)
+# (сцена англійською, підпис українською). Герой завжди той самий: рудий кіт у стилі 3D-мультфільму з людськими емоціями.
 THEMES = [
-    ("a fluffy kitten asleep inside a cardboard box, soft morning light", "Якщо я вміщуюсь, то це моя коробка."),
-    ("a ginger cat wearing a tiny knitted hat, cozy home", "Сьогодні в мене офіційний вигляд."),
-    ("a tabby cat peeking from behind a curtain with huge eyes", "Я тут не ховаюсь. Я стратегічно спостерігаю."),
-    ("a sleepy kitten curled up on a warm laptop keyboard", "Працюю. Дуже уважно працюю."),
-    ("a black cat with golden eyes sitting next to a cup of tea", "Чай є, настрій є, решта на завтра."),
-    ("a chubby grey cat lying belly-up in a sunny spot", "Сонячна ванна. Не турбувати до весни."),
-    ("a kitten with a wool ball tangled around its paws", "Я її не чіпав. Вона сама."),
-    ("a white fluffy cat sitting in a flower pot among green plants", "Тут тепер росте кіт."),
-    ("a kitten wearing a tiny scarf in a snowy window", "Зимовий режим: увімкнено."),
-    ("a cat balancing on a stack of books, funny curious expression", "Мудрість треба вивчати з висоти."),
-    ("two kittens hugging while sleeping, pastel colors", "Дружба — це коли гріємо одне одного."),
-    ("a Siamese cat looking surprised at a bowl of food", "Це точно вся порція? Я перепитаю."),
-    ("a cat in a small paper bag with only the tail sticking out", "Мене тут немає. Це лише хвіст."),
-    ("a kitten sitting under a tiny umbrella in a rainy cozy scene", "Дощ — привід залишитися вдома."),
-    ("a ginger kitten yawning widely, comic expression", "Доба була довга. Я втомився гарно."),
-    ("a cat sitting like a person on a sofa with a blanket", "Вечір. Плед. Спокій."),
-    ("a tuxedo cat with a funny little mustache pattern, studio portrait", "Поважний кіт на вечірньому прийомі."),
-    ("a fluffy kitten chasing a soap bubble, playful", "Піймаю! Ні, не піймаю. Ще раз!"),
-    ("a calico cat sleeping on a pile of fresh laundry", "Це було чисте. Тепер — моє."),
-    ("a kitten with a paper crown looking proud", "Королівський указ: мене погладити."),
-    ("a cat sitting by the window watching falling autumn leaves", "Вечірній огляд території завершено."),
-    ("a tiny kitten in a teacup, cute and funny", "Невеличка порція щастя."),
-    ("a big fluffy Maine Coon wrapped in a blanket like a burrito", "Кіт-буріто. Не розгортати."),
+    ("sitting at a laptop late in the evening with a steaming mug, tired but proud, finishing the day's work", "Робочий день завершено. Я молодець."),
+    ("lying on a sofa under a blanket with a remote control, blissfully relaxed, cozy living room", "Вечір. Плед. Спокій."),
+    ("thinking hard with a paw on the chin, question marks floating in the air as soft shapes, no letters", "Хм. Це треба обміркувати."),
+    ("pouring coffee in the morning kitchen, sleepy half-closed eyes, messy fur", "Кава — це не напій, це режим запуску."),
+    ("celebrating with both paws up and a huge happy smile, confetti falling", "Усе вдалося! Навіть я здивований."),
+    ("holding a tiny umbrella in light rain, looking at the sky with a mildly offended face", "Знову дощ? Я ж планував гуляти."),
+    ("reading a thick book in an armchair with reading glasses, a cup of tea nearby", "Мудрість приходить повільно, зате з печивом."),
+    ("standing on a bathroom scale looking shocked, comedic exaggerated expression", "Це точно не мої цифри. Це зважування помилилось."),
+    ("hugging a big pillow, deeply sleepy, dark circles under the eyes, late night bedroom", "Ще одну серію — і спати. Так я собі казав годину тому."),
+    ("wearing a cozy knitted sweater and scarf by a snowy window, holding hot chocolate", "Зима за вікном, тепло всередині."),
+    ("cooking in the kitchen with a chef's hat, proud of a slightly burnt pancake", "Це не підгоріло. Це золота скоринка."),
+    ("working out with tiny dumbbells, very serious face but sweating a little", "Спорт — це коли страждаєш за власним розкладом."),
+    ("carrying a pile of shopping bags, tired but happy, evening city lights behind", "Купив лише найнеобхідніше. (Не лише.)"),
+    ("sitting on a window sill looking at the starry night with a dreamy gentle smile", "Іноді просто дивитися на зорі — теж робота."),
+    ("peeking over a laptop with wide eyes and a nervous smile during an online meeting", "Мікрофон вимкнений? Так? Точно вимкнений?"),
+    ("receiving a bouquet of flowers, blushing, heart-shaped glow around, sweet surprised look", "Мені? Дякую. Я зворушений."),
+    ("headphones on, listening to music with eyes closed, swaying, colorful abstract sound waves", "Світ стишено. Музика — на повну."),
+    ("sitting behind a desk with a stack of papers and a tiny tie, serious boss pose", "Нарада закінчилась, але я ще офіційний."),
+    ("stretching after waking up in a sunny bedroom, yawning widely, cheerful morning mood", "Доброго ранку. Будь ласка, без швидких рішень."),
+    ("in a hammock under a tree with sunglasses and a cold drink, total relaxation", "Відпустка — стан душі. Тримаю його."),
+    ("holding a phone and laughing out loud at a funny video, tears of joy", "Ще один мем — і справді спати."),
+    ("walking in the autumn park with fallen leaves, hands behind back, calm philosophical mood", "Осінь навчає відпускати. Листя вже навчилось."),
+    ("on a scooter in a city, wind in the whiskers, joyful carefree smile", "Іду по справах. Із вітерцем."),
 ]
 
 
@@ -63,6 +62,12 @@ def _gen_models(key: str, call=llm._call) -> list[str]:
     return names or ["gemini-2.5-flash-image"]
 
 
+def _refs() -> list[str]:
+    """Зразки стилю (assets/cat/*.jpg) у base64."""
+    d = pathlib.Path(__file__).resolve().parent.parent / "assets" / "cat"
+    return [base64.b64encode(f.read_bytes()).decode() for f in sorted(d.glob("*.jpg"))[:3]] if d.is_dir() else []
+
+
 def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     """Картинка від моделі або None."""
     t0 = time.monotonic()
@@ -71,8 +76,10 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     for model in models[:2]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        payload = {"contents": [{"role": "user", "parts": [{"text": f"Create a funny, adorable cartoon illustration of a cat character: {prompt_en}. Style: colorful 2D cartoon, bold clean outlines, big expressive eyes, exaggerated funny pose, warm friendly colors, children's-book / sticker look. Not a photo, not realistic. No text, no letters, no watermark."}]}],
-                   "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
+        parts = [{"text": f"Create a new square 1:1 image in EXACTLY the style and with the SAME character as the attached reference images: a charming ginger cat in a Pixar-like 3D animated movie style, extremely detailed fur, big expressive eyes, human-like emotion and pose, cinematic soft lighting, warm friendly colors. New scene: {prompt_en}. No text, no letters, no watermark, no logos."}]
+        for ref in _refs():
+            parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
+        payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
         try:
             out = call(f"{llm.API}/models/{model}:generateContent", key, payload, 60)
             for part in out["candidates"][0]["content"]["parts"]:
@@ -134,7 +141,7 @@ def stock_photo(get=_get) -> bytes | None:
     return None
 
 
-def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get, allow_photo: bool = False):
+def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get, allow_photo: bool = False, allow_free: bool = False):
     """→ (шлях, підпис, походження) або None."""
     prompt, line = theme_for(today)
     img, origin = None, ""
@@ -142,13 +149,15 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     if key:
         img = generate(prompt, key, call)
         origin = "ШІ-картинка"
-    if img is None:
+    if img is None and allow_free:
         img = pollinations(prompt, today, get)
         origin = "малюнок Pollinations (безкоштовний сервіс)"
     if img is None and allow_photo:
         img = stock_photo(get)
         origin = "фото з відкритого сервісу (ШІ-картинка недоступна)"
     if img is None:
+        if not key:
+            last_error.append("немає ключа Gemini")
         if last_error:
             raise RuntimeError("Котик не намалювався. " + " | ".join(last_error)[:420])
         return None

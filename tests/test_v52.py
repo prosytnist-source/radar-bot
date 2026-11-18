@@ -131,7 +131,7 @@ class CatTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 cat.build(date(2026, 11, 18), "k", d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError("net")))
             jpg = b"\xff\xd8\xff" + b"z" * 6000
-            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=lambda u, t=25: jpg)
+            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=lambda u, t=25: jpg, allow_free=True)
             self.assertIn("Pollinations", r[2])
             with self.assertRaises(RuntimeError):
                 cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError()))
