@@ -53,7 +53,7 @@ def clean(s: str) -> str:
     s = re.sub(r"\[\[([^\]]+)\]\]", r"\1", s)
     s = re.sub(r"'{2,}", "", s)
     s = re.sub(r"<[^>]+>", "", s)
-    return html.unescape(" ".join(s.split())).strip(" ,;")
+    return html.unescape(" ".join(s.split())).replace("\u0301", "").strip(" ,;")
 
 
 LINE = re.compile(r"^(?:\[\[)?(\d{1,4})(?:\]\])?\s*(?:р\.|року|рік|р)?\s*[—–:\-]+\s*(.+)$")
@@ -144,7 +144,7 @@ def summary(title: str, fetch=get_json) -> dict:
         d = fetch(SUMMARY_API.format(title=quote(title.replace(" ", "_"), safe="")))
     except Exception:  # noqa: BLE001
         return {}
-    return {"title": d.get("title") or title, "extract": (d.get("extract") or "").strip(), "description": d.get("description") or ""}
+    return {"title": d.get("title") or title, "extract": (d.get("extract") or "").replace("\u0301", "").strip(), "description": d.get("description") or ""}
 
 
 def first_sentences(text: str, limit: int) -> str:
@@ -180,8 +180,15 @@ SYSTEM = (
 
 def write(cand: dict, kind: str, src: dict, key: str | None, model: str | None = None, call=llm.generate_json) -> tuple[str, str]:
     """(title, text): через модель із перевіркою, інакше — дослівний уривок із Вікіпедії."""
+    src = {**src, "extract": (src.get("extract") or "").replace("\u0301", "")}
     source = (cand["text"] + "\n" + src.get("extract", "")).strip()
     fallback_title = clean(src.get("title") or cand.get("link") or "")[:60] or ("Визначна постать" if kind == "figure" else "Подія дня")
+    if kind == "figure":
+        nm = re.match(r"^([^()—–,]{4,60}?)\s*(?:\(|—|–|,)", (src.get("extract") or "").replace("\u0301", "").strip())
+        if nm:
+            tw, nw = fallback_title.split(), nm.group(1).split()
+            if 1 < len(nw) <= 5 and tw[0] != nw[0] and set(nw) <= set(tw):  # у Вікіпедії «Прізвище Ім'я По-батькові» → як у тексті
+                fallback_title = " ".join(nw)
     if kind == "figure":
         fb_text = first_sentences(src.get("extract") or cand["text"], 420)
     else:

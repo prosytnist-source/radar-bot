@@ -45,6 +45,13 @@ class T(unittest.TestCase):
               "** [[1915]] – Вступили війська в Україні, у Галичині.\n")
         self.assertGreaterEqual(len(c.parse_day(wt)), 4)
 
+    def test_title_order_and_accents(self):
+        sm = {"title": "Амбодик-Максимович Нестор Максимович", "extract": "Не\u0301стор Амбоди\u0301к-Максимович (7 листопада 1744 — 24 липня 1812) — український вчений."}
+        cand = {"kind": "birth", "year": 1744, "n": 282, "text": "Нестор Амбодик, український вчений", "link": "x"}
+        t, txt = c.write(cand, "figure", sm, None)
+        self.assertEqual(t, "Нестор Амбодик-Максимович")
+        self.assertNotIn("\u0301", txt)
+
     def test_candidates(self):
         items = c.parse_day(WT)
         f = c.candidates(items, "figure", date(2026, 1, 22))
