@@ -47,7 +47,7 @@ def list_models(key: str) -> list[str]:
     return sorted(m["name"].removeprefix("models/") for m in out.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", []))
 
 
-def generate_json(system: str, prompt: str, model: str, key: str, retries: int = 2) -> str:
+def generate_json(system: str, prompt: str, model: str, key: str, retries: int = 2, timeout: int = 120) -> str:
     """Повертає текст відповіді (очікуємо JSON). На 429/5xx чекає й повторює; після вичерпання — LLMError."""
     payload = {
         "systemInstruction": {"parts": [{"text": system}]},
@@ -57,7 +57,7 @@ def generate_json(system: str, prompt: str, model: str, key: str, retries: int =
     last = ""
     for attempt in range(retries):
         try:
-            out = _call(f"{API}/models/{model}:generateContent", key, payload)
+            out = _call(f"{API}/models/{model}:generateContent", key, payload, timeout)
             parts = out["candidates"][0]["content"]["parts"]
             return "".join(p.get("text", "") for p in parts)
         except HTTPError as e:

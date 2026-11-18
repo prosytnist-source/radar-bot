@@ -7,6 +7,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import time
 from datetime import date
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -28,7 +29,11 @@ EVENT_UA = re.compile(
 DECEASED = re.compile(r"\(\s*[^()]*?\d{4}[^()]*?[–—-]\s*[^()]*?\d{4}[^()]*?\)")
 
 
-def get_json(url: str, timeout: int = 30) -> dict:
+BUDGET = 150  # секунд на весь пошук і писання; далі — дослівний уривок без моделі
+_deadline = [0.0]
+
+
+def get_json(url: str, timeout: int = 20) -> dict:
     with urlopen(Request(url, headers=UA), timeout=timeout) as r:  # noqa: S310
         return json.loads(r.read().decode("utf-8", "replace"))
 
@@ -186,8 +191,10 @@ def write(cand: dict, kind: str, src: dict, key: str | None, model: str | None =
     what = {"birth": "постать; сьогодні її день народження (вона народилася цього дня)", "death": "постать; сьогодні день її пам'яті (вона померла цього дня)"}.get(cand["kind"], "історична подія")
     prompt = f"Тема: {what}. Річниця: {cand['n']} років тому ({cand['year']} рік). Не пиши «народився або» чи подібних вагань.\n\nДЖЕРЕЛО:\n{source[:2200]}"
     for mdl in (model or llm.DEFAULT_MODEL, llm.FALLBACK_MODEL):
+        if time.monotonic() > _deadline[0] - 40:
+            break  # бракує часу — беремо дослівний уривок
         try:
-            out = json.loads(call(SYSTEM, prompt, mdl, key))
+            out = json.loads(call(SYSTEM, prompt, mdl, key, retries=1, timeout=35))
             title, text = str(out.get("title", "")).strip(), str(out.get("text", "")).strip()
         except Exception as exc:  # noqa: BLE001
             if llm.is_busy(exc):
@@ -212,6 +219,7 @@ def occasion(cand: dict, today: date) -> str:
 
 def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | None = None, call=llm.generate_json, model: str | None = None):
     """→ {title, subtitle, chips, caption, key} або None, якщо підходящого запису немає. Помилка мережі — виняток (власник дізнається)."""
+    _deadline[0] = time.monotonic() + BUDGET
     raw = fetch(DAY_API.format(page=quote(day_page(today))))
     wt = (raw.get("parse") or {}).get("wikitext") or ""
     if not wt:
@@ -225,6 +233,8 @@ def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | No
         raise RuntimeError(f"не вдалося розібрати сторінку дня; розділи: {heads}; після «Події»: {sample}")
     cands = pick(candidates(items, kind, today), set(used), today)
     for cand in cands[:8]:
+        if time.monotonic() > _deadline[0]:
+            break
         src = summary(cand["link"], fetch) if cand.get("link") else {}
         if kind == "figure" and cand["kind"] == "birth" and not DECEASED.search((src.get("extract") or "")[:300]):
             continue  # живих людей не публікуємо
