@@ -26,7 +26,7 @@ CHARACTER = ("Kit-Radar: a modern, charismatic, slim-bodied ginger tabby cat (NO
 STYLE = ("Ultra-detailed 3D animated film still, premium Pixar-quality rendering, cinematic and modern. "
          "Low camera angle, close shot: the cat's face is large and fills at least 40 percent of the frame, head slightly tilted. "
          "Cinematic contrast lighting with a warm orange accent light and soft glowing rim light on the fur, shallow depth of field with creamy bokeh. "
-         "Hyper-detailed individual fur strands and long visible whiskers. Square 1:1. "
+         "Hyper-detailed individual fur strands and long visible whiskers. Aspect ratio as requested (default square 1:1). "
          "Recurring brand details: a cream mug or object with a small black paw-print logo; in indoor scenes a dark navy wall with a gold-framed picture of a peace-sign hand, a shelf with books, a plant and a warm lamp. "
          "NOT a children's storybook, NOT a plush toy look, NOT a full-body centered frontal pose, NOT fat, no wide-open mouth. No text, no letters, no watermark.")
 FRAMING = ("MANDATORY FRAMING (highest priority, overrides the scene wording): EXTREME CLOSE-UP hero shot, camera a meter from the cat, wide-angle lens, low angle. "
@@ -139,7 +139,7 @@ def _refs() -> list[str]:
     return [base64.b64encode(f.read_bytes()).decode() for f in sorted(d.glob("*.jpg"))[:3]] if d.is_dir() else []
 
 
-def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
+def generate(prompt_en: str, key: str, call=llm._call, aspect: str = "1:1") -> bytes | None:
     """Картинка від моделі або None."""
     t0 = time.monotonic()
     models = _gen_models(key, call)
@@ -152,7 +152,7 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
         try:
             out = None
-            for cfg in ({"responseModalities": ["IMAGE", "TEXT"], "imageConfig": {"aspectRatio": "1:1", "imageSize": "2K"}},
+            for cfg in ({"responseModalities": ["IMAGE", "TEXT"], "imageConfig": {"aspectRatio": aspect, "imageSize": "2K"}},
                         {"responseModalities": ["IMAGE", "TEXT"]}):  # 2K підтримують не всі моделі — тоді звичайний розмір
                 payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": cfg}
                 try:
@@ -309,3 +309,32 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
     brand_mark(path)
     caption = f"<b>Радар 🐱</b>\n{line}"
     return path, caption, origin
+
+
+# ---------- постійні банери рубрик (генеруються раз, потім використовуються щодня) ----------
+BANNERS = {
+    "holiday": ("Свято", "wide 16:9 composition, cat on the left two thirds: cheerful and festive, raising a mug in a toast, confetti in the air, warm string lights, a blank wall calendar page with a red circle behind"),
+    "rates": ("Курс валют", "wide 16:9 composition: cat at a desk counting a neat fan of banknotes and a stack of gold coins, a laptop behind with abstract green and red rising-falling charts without any numbers, smug analytical sideways glance, round reading glasses"),
+    "fuel": ("Пальне", "wide 16:9 composition: cat in a hoodie holding a fuel nozzle at a modern gas station at blue dusk, a sleek car behind, a glowing blurred price sign in the distance, raised eyebrow, skeptical smug glance"),
+    "figure": ("Визначні постаті", "wide 16:9 composition: cat in a dark blazer over a white shirt standing proudly beside a classic marble bust on a pedestal, holding an open old book, dignified proud smile, warm library with shelves and a brass lamp"),
+    "fact": ("Історичний факт", "wide 16:9 composition: cat with a magnifying glass studying an old unrolled map and parchment scrolls on a wooden table, an hourglass and a candle, curious thoughtful sideways glance, warm candlelight"),
+}
+
+
+def build_banners(key: str, out_dir, only: str | None = None, call=llm._call):
+    """Згенерувати банери (усі або один за ключем). → список (ключ, назва, шлях); невдалі пропускаються з записом у last_error."""
+    out = pathlib.Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    done = []
+    last_error.clear()
+    for k, (label, scene) in BANNERS.items():
+        if only and k != only:
+            continue
+        img = generate(scene, key, call, aspect="16:9")
+        if img is None:
+            continue
+        path = out / f"{k}.jpg"
+        path.write_bytes(img)
+        upscale(path)
+        brand_mark(path)
+        done.append((k, label, path))
+    return done

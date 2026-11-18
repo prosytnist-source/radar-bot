@@ -112,6 +112,25 @@ class CatEveningTests(unittest.TestCase):
             self.assertFalse(any(w in ln for w in bad), ln)
 
 
+class BannerTests(unittest.TestCase):
+    def test_banner_helper_and_build(self):
+        import base64, io, json, os, tempfile
+        from PIL import Image
+        from digest import cat, fixed
+        d = tempfile.mkdtemp()
+        def call(url, key, body, t):
+            if body is None:
+                return {"models": []}
+            b = io.BytesIO(); Image.effect_noise((500, 280), 90).convert("RGB").save(b, "JPEG")
+            return {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(b.getvalue()).decode()}}]}}]}
+        r = cat.build_banners("k", d, call=call)
+        self.assertEqual([k for k, _, _ in r], list(cat.BANNERS))
+        r1 = cat.build_banners("k", d, only="fuel", call=call)
+        self.assertEqual([k for k, _, _ in r1], ["fuel"])
+        # без live — звичайна картка
+        self.assertEqual(fixed.banner("fuel", "DEFAULT"), "DEFAULT")
+
+
 class CatBrandTests(unittest.TestCase):
     def test_mark_and_scene(self):
         import os, tempfile

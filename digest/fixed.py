@@ -40,6 +40,16 @@ def human(d: date) -> str:
     return f"{d.day} {MONTHS[d.month - 1]}"
 
 
+def banner(key: str, default):
+    """Постійний банер з котом для рубрики (state/banners/<ключ>.jpg), якщо він є і в rubrics.json banners=live; інакше — звичайна картка."""
+    try:
+        if json.loads(RUBRICS.read_text(encoding="utf-8")).get("banners") == "live" and (BANNER_DIR / f"{key}.jpg").exists():
+            return BANNER_DIR / f"{key}.jpg"
+    except (OSError, json.JSONDecodeError):
+        pass
+    return default
+
+
 # ---------- свято ----------
 def holiday_post(d: date):
     hs = holidays_for(d)
@@ -49,7 +59,7 @@ def holiday_post(d: date):
     for name, kind in hs:
         lines.append(f"• {html.escape(name, quote=False)} <i>({LABEL[kind]})</i>")
     lines += ["", FOOT]
-    return CARDS / f"holiday-{d.day}.jpg", "\n".join(lines)
+    return banner("holiday", CARDS / f"holiday-{d.day}.jpg"), "\n".join(lines)
 
 
 # ---------- курс НБУ ----------
@@ -75,7 +85,7 @@ def rates_post(d: date, fetch=get):
             ch = f" ({'▲' if dl > 0 else '▼'} {abs(dl):.2f})"
         lines.append(f"{sym}: <b>{today[cc]:.2f}</b> грн{ch}".replace(".", ","))
     lines += ["", "<i>Джерело: Національний банк України. Зміна — до попереднього дня.</i>"]
-    return CARDS / "rates.jpg", "\n".join(lines)
+    return banner("rates", CARDS / "rates.jpg"), "\n".join(lines)
 
 
 # ---------- пальне ----------
@@ -160,7 +170,7 @@ def fuel_post(d: date, st: State, fetch=get):
         lines.append(f"{name}: <b>{cur[k]:.2f}</b>{ch}".replace(".", ","))
     note = f" (дані на {cur['date']})" if cur.get("date") and cur["date"] != f"{d:%d.%m.%Y}" else ""
     lines += ["", f"<i>Джерело: Мінфін / A-95 Consulting{note}. Зміна — до попереднього допису.</i>"]
-    return CARDS / "fuel.jpg", "\n".join(lines), {k: v for k, v in cur.items() if k in ("А-95", "А-92", "ДП", "Газ")}
+    return banner("fuel", CARDS / "fuel.jpg"), "\n".join(lines), {k: v for k, v in cur.items() if k in ("А-95", "А-92", "ДП", "Газ")}
 
 
 # ---------- хвилина мовчання ----------
@@ -172,6 +182,7 @@ def silence_post(d: date):
 
 # ---------- рубрики «Визначні постаті» і «Історичний факт» ----------
 RUBRICS = ROOT / "rubrics.json"
+BANNER_DIR = ROOT / "state" / "banners"
 RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Кіт-Радар"}
 
 
@@ -215,7 +226,10 @@ def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = Non
         return None
     out = pathlib.Path("/tmp") / f"rubric-{kind}-{d.isoformat()}.jpg"
     glyph, accent = ("person", "figure") if kind == "figure" else ("clock", "history")
-    if card.available():
+    ban = banner(kind, None)
+    if ban is not None:
+        out = ban
+    elif card.available():
         card.render(res["title"], out, subtitle=res["subtitle"], chips=res["chips"], kind=accent, glyph=glyph)
     else:
         out = CARDS / "holiday-1.jpg"
@@ -236,9 +250,30 @@ def due(kind: str, now: datetime) -> tuple[bool, str]:
     return True, ""
 
 
+def banners_main(a) -> int:
+    """Разова генерація постійних банерів з котом: зберігаються в state/banners і надсилаються власнику на перегляд."""
+    import os
+    from . import cat, llm
+    only = os.environ.get("CAT_SCENE", "").strip() or None
+    if only and only not in cat.BANNERS:
+        only = None
+    key = llm.load_key()
+    done = cat.build_banners(key, BANNER_DIR, only)
+    for k, label, path in done:
+        if not a.dry:
+            publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), path, f"<b>👀 Банер «{label}»</b> ({k}) — пробний, у канал не йде")
+    miss = [k for k in ([only] if only else cat.BANNERS) if k not in [d[0] for d in done]]
+    if miss:
+        print("Не вдалося:", miss, cat.last_error, file=sys.stderr)
+        if not a.dry:
+            publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), html.escape(f"⚠️ Банери не намалювалися: {miss}. {' | '.join(cat.last_error)[:300]}", quote=False))
+    print("Банери:", [d[0] for d in done])
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--kind", required=True, choices=list(TARGET))
+    ap.add_argument("--kind", required=True, choices=list(TARGET) + ["banners"])
     ap.add_argument("--now")
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--force", action="store_true", help="ігнорувати паузу, «вже публікували» і запізнення (для ручної перевірки)")
@@ -246,6 +281,8 @@ def main(argv=None) -> int:
     now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
     today = now.astimezone(ZoneInfo(TZ)).date()
     st = State(ROOT / "state")
+    if a.kind == "banners":
+        return banners_main(a)
     mark_file = st.dir / "fixed.json"
     try:
         marks = json.loads(mark_file.read_text(encoding="utf-8"))

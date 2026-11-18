@@ -13,10 +13,10 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: "holiday | rates | fuel | figure | fact | cat"
+        description: "holiday | rates | fuel | figure | fact | cat | banners"
         default: "rates"
       scene:
-        description: "тільки для kind=cat: власна сцена для проби, напр. «кіт дивиться на дощ з кавою» (можна залишити порожнім)"
+        description: "для kind=cat: власна сцена для проби; для kind=banners: ключ одного банера (holiday, rates, fuel, figure, fact) щоб перегенерувати лише його, напр. «кіт дивиться на дощ з кавою» (можна залишити порожнім)"
         default: ""
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
@@ -29,7 +29,7 @@ permissions:
 jobs:
   fixed:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
