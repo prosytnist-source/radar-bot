@@ -61,7 +61,11 @@ def parse_day(wikitext: str) -> list[dict]:
         h = re.match(r"^(=+)\s*(.+?)\s*\1\s*$", ln)
         if h:
             title = clean(h.group(2)).lower()
-            kind = next((k for k, names in SECTIONS.items() if any(title.startswith(n) for n in names)), None) if len(h.group(1)) <= 3 else kind
+            found = next((k for k, names in SECTIONS.items() if any(title.startswith(n) for n in names)), None)
+            if found:
+                kind = found
+            elif len(h.group(1)) <= 2:
+                kind = None  # новий розділ верхнього рівня; підрозділи («XX століття») лишаються в поточному
             continue
         if not kind:
             continue
@@ -198,7 +202,9 @@ def build(kind: str, today: date, used: list[str], fetch=get_json, key: str | No
         raise RuntimeError("Вікіпедія не віддала сторінку дня")
     items = parse_day(wt)
     if not items:
-        raise RuntimeError("не вдалося розібрати сторінку дня (змінилась розмітка?)")
+        heads = re.findall(r"^=+\s*(.+?)\s*=+\s*$", wt, flags=re.M)[:8]
+        first = [ln[:50] for ln in wt.splitlines() if ln.startswith("*")][:2]
+        raise RuntimeError(f"не вдалося розібрати сторінку дня; розділи: {heads}; рядки: {first}")
     cands = pick(candidates(items, kind, today), set(used), today)
     for cand in cands[:8]:
         src = summary(cand["link"], fetch) if cand.get("link") else {}

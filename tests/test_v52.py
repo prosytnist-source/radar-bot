@@ -33,6 +33,10 @@ class T(unittest.TestCase):
         self.assertEqual(items[0]["kind"], "event")
         self.assertEqual(items[2]["link"], "Іван Франко")
 
+    def test_subsections(self):
+        wt = "== Події ==\n=== XX століття ===\n* [[1919]] — Проголошено Акт злуки в Україні, у Києві.\n== Народились ==\n=== XIX століття ===\n* [[1856]] — [[Іван Франко]], український письменник.\n"
+        self.assertEqual([i["kind"] for i in c.parse_day(wt)], ["event", "birth"])
+
     def test_candidates(self):
         items = c.parse_day(WT)
         f = c.candidates(items, "figure", date(2026, 1, 22))
