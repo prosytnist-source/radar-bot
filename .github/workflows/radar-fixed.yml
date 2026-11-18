@@ -15,6 +15,9 @@ on:
       kind:
         description: "holiday | rates | fuel | figure | fact | cat"
         default: "rates"
+      scene:
+        description: "тільки для kind=cat: власна сцена для проби, напр. «кіт дивиться на дощ з кавою» (можна залишити порожнім)"
+        default: ""
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
         default: "false"
@@ -53,6 +56,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_OWNER_ID: ${{ secrets.TELEGRAM_OWNER_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CAT_SCENE: ${{ github.event.inputs.scene }}
         run: |
           F=""
           if [ "${{ github.event.inputs.force }}" = "true" ]; then F="--force"; fi

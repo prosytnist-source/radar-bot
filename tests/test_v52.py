@@ -102,8 +102,30 @@ class T(unittest.TestCase):
                 self.assertTrue(pathlib.Path(p).stat().st_size > 5000)
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+
+class CatBrandTests(unittest.TestCase):
+    def test_mark_and_scene(self):
+        import os, tempfile
+        from PIL import Image
+        from digest import cat
+        d = tempfile.mkdtemp(); p = os.path.join(d, "a.jpg")
+        Image.new("RGB", (1024, 1024), (200, 120, 40)).save(p)
+        before = Image.open(p).getpixel((900, 980))
+        cat.brand_mark(p)
+        self.assertNotEqual(before, Image.open(p).getpixel((900, 980)))
+        os.environ["CAT_SCENE"] = "кіт під дощем"
+        try:
+            seen = []
+            def call(url, key, body, t):
+                if body: seen.append(str(body))
+                import base64, io
+                b = io.BytesIO(); Image.effect_noise((400, 400), 90).convert("RGB").save(b, "JPEG")
+                return {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(b.getvalue()).decode()}}]}}]}
+            cat.build(date(2026, 11, 18), "k", d, call=call, get=lambda u, t=25: b"")
+            self.assertTrue(any("кіт під дощем" in x for x in seen))
+        finally:
+            del os.environ["CAT_SCENE"]
 
 
 class CatTests(unittest.TestCase):
@@ -136,3 +158,7 @@ class CatTests(unittest.TestCase):
             self.assertIn("Pollinations", r[2])
             with self.assertRaises(RuntimeError):
                 cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError()))
+
+
+if __name__ == "__main__":
+    unittest.main()

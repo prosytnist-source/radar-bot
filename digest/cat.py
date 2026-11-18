@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import pathlib
 import time
 from datetime import date
@@ -15,51 +16,57 @@ UA = {"User-Agent": "RadarBot/1.0 (https://github.com/prosytnist-source/radar-bo
 BUDGET = 150
 last_error: list[str] = []
 
-# Кіт-Радар — постійний персонаж. Амплуа за днем тижня (0 = понеділок); у кожного — кілька сцен (англійською) і підписів.
-CHARACTER = ("Kit-Radar: a fluffy ginger cat with a white muzzle and white chest, thick expressive eyebrows, round chubby cheeks, big expressive slightly sly half-lidded eyes, "
-             "human-like behavior, clothes and accessories, Pixar-like 3D animated movie style, extremely detailed fur, cinematic soft lighting")
+# Кіт-Радар — постійний персонаж: сучасний, впевнений, трохи нахабний «крутий» кіт, а не казковий. Амплуа за днем тижня (0 = понеділок).
+CHARACTER = ("Kit-Radar: a chubby, cocky, deadpan ginger tabby cat with a white muzzle and white chest, thick expressive eyebrows, "
+             "round full cheeks, huge glossy half-lidded eyes with a smug sly look, relaxed confident human-like posture, "
+             "wearing casual modern clothes when the scene fits (hoodie, jeans, sneakers)")
+STYLE = ("Ultra-detailed 3D animated film still, Pixar-quality rendering. Modern, cool, contemporary lifestyle mood - NOT a fairy tale, "
+         "NOT a storybook or children's cartoon, no bow ties or fancy vests, no wide-open mouth, no cake-and-candles clichés. "
+         "Shot like a cinematic photograph: close-up or low camera angle, shallow depth of field with soft bokeh, warm rim light, "
+         "hyper-detailed individual fur strands. Square 1:1. Somewhere in the scene include a cream mug or object with a small black paw-print logo. "
+         "No text, no letters, no watermark.")
 ROLES = {
     0: ("Кіт на роботі", [
-        ("sitting at a laptop late in the evening with a steaming mug, tired but proud, finishing the day's work", "Робочий день завершено. Я молодець."),
-        ("peeking over a laptop with wide eyes and a nervous smile during an online meeting", "Мікрофон вимкнений? Так? Точно вимкнений?"),
-        ("sitting behind a desk with a stack of papers and a tiny tie, serious boss pose", "Нарада закінчилась, але я ще офіційний."),
-        ("pouring coffee in an office kitchen, sleepy half-closed eyes, messy fur, Monday morning", "Понеділок — це коли кава працює за двох."),
+        ("slouched at a desk in front of a laptop late in the evening, a steaming mug nearby, tired but proud smirk, city lights in the window behind", "Робочий день завершено. Я молодець."),
+        ("peeking over a laptop screen during an online meeting, nervous smug half-smile, headphones around the neck, home office", "Мікрофон вимкнений? Так? Точно вимкнений?"),
+        ("leaning back in an office chair with hands behind the head and feet up on the desk next to a stack of papers, confident boss pose, cozy lamp light", "Нарада закінчилась, але я ще офіційний."),
+        ("holding a to-go coffee cup with both paws, sleepy half-closed eyes, messy fur, early Monday morning street with soft bokeh", "Понеділок — це коли кава працює за двох."),
     ]),
     1: ("Кіт-відпочивальник", [
-        ("lying on a sofa under a blanket with a remote control, blissfully relaxed, cozy living room", "Вечір. Плед. Спокій."),
-        ("in a hammock under a tree with sunglasses and a cold drink, total relaxation", "Відпустка — стан душі. Тримаю його."),
-        ("headphones on, listening to music with eyes closed, swaying, colorful abstract sound waves", "Світ стишено. Музика — на повну."),
-        ("lying in a warm bubble bath with a rubber duck and a face mask, eyes closed, smiling", "Сеанс відновлення. Не турбувати."),
+        ("sprawled on a sofa under a blanket with a game controller, blissfully relaxed smirk, TV glow in the dark living room", "Вечір. Плед. Спокій."),
+        ("lying in a hammock with sunglasses and a cold drink, total relaxation, palm tree and golden sunset behind", "Відпустка — стан душі. Тримаю його."),
+        ("big headphones on, eyes closed, swaying to music, colorful abstract light streaks around, dark moody room", "Світ стишено. Музика — на повну."),
+        ("relaxing in a hot bath with a face mask and a rubber duck, smug satisfied half-closed eyes, spa candles soft bokeh", "Сеанс відновлення. Не турбувати."),
     ]),
     2: ("Кіт-господар", [
-        ("cooking in the kitchen with a chef's hat, proud of a slightly burnt pancake", "Це не підгоріло. Це золота скоринка."),
-        ("setting a festive table with candles and a big cake, welcoming guests with a warm smile", "Гості на порозі. Хвіст — прапором."),
-        ("watering houseplants with a tiny watering can, gentle caring expression, sunny home", "Квіти теж люблять увагу. Як і я."),
-        ("wearing an apron and tidying the home with a feather duster, determined face", "Прибирання — це коли знаходиш свої речі."),
+        ("cooking at a modern kitchen counter with a pan, proud smug look at a slightly burnt pancake, apron over a hoodie, warm kitchen light", "Це не підгоріло. Це золота скоринка."),
+        ("opening the door in a hoodie and holding a pizza box delivered, delighted greedy smirk, apartment hallway light", "Гості будуть. Піца — вже тут."),
+        ("watering a green houseplant with a tiny can on a sunny windowsill, gentle caring half-smile, relaxed morning", "Квіти теж люблять увагу. Як і я."),
+        ("wearing rubber gloves and a hoodie, wiping a kitchen table with a cloth, determined deadpan face, bright modern flat", "Прибирання — це коли знаходиш свої речі."),
     ]),
     3: ("Кіт-філософ", [
-        ("thinking hard with a paw on the chin, question marks floating in the air as soft shapes, no letters", "Хм. Це треба обміркувати."),
-        ("reading a thick book in an armchair with reading glasses, a cup of tea nearby", "Мудрість приходить повільно, зате з печивом."),
-        ("sitting on a window sill looking at the starry night with a dreamy gentle smile", "Іноді просто дивитися на зорі — теж робота."),
-        ("walking in the autumn park with fallen leaves, hands behind back, calm philosophical mood", "Осінь навчає відпускати. Листя вже навчилось."),
+        ("chin on a paw, eyes rolled thoughtfully up to the side, deep in thought, dark background with warm rim light", "Хм. Це треба обміркувати."),
+        ("reading a thick book in a leather armchair with round glasses, a mug of tea beside, library lamp light", "Мудрість приходить повільно, зате з печивом."),
+        ("sitting on a windowsill in a hoodie looking at the night city and stars with a dreamy smirk, soft bokeh lights", "Іноді просто дивитися на зорі — теж робота."),
+        ("walking through an autumn park in a coat and scarf, hands behind the back, calm philosophical smirk, golden leaves bokeh", "Осінь навчає відпускати. Листя вже навчилось."),
     ]),
     4: ("Кіт-тусовщик", [
-        ("celebrating with both paws up and a huge happy smile, confetti falling, party hat", "П'ятниця! Хвіст у ритмі."),
-        ("dancing in a disco with colorful lights and sunglasses, full of joy", "Я не танцюю. Я просто рухаюсь у ритмі."),
-        ("receiving a bouquet of flowers and a gift box, blushing, sweet surprised look", "Мені? Дякую. Я зворушений."),
-        ("holding a phone and laughing out loud at a funny video, tears of joy", "Ще один мем — і справді спати."),
+        ("pointing at the camera with a huge cocky grin, party lights and confetti behind, sunglasses on the forehead, Friday night", "П'ятниця! Хвіст у ритмі."),
+        ("dancing at a club in a bright jacket, disco lights and smoke, relaxed confident smirk, motion blur", "Я не танцюю. Я просто рухаюсь у ритмі."),
+        ("holding a bouquet of flowers and a small gift, blushing a little but smug, warm evening street bokeh", "Мені? Дякую. Я зворушений."),
+        ("laughing out loud while looking at a smartphone, tears of joy, lying on a sofa, phone light on the face", "Ще один мем — і справді спати."),
     ]),
     5: ("Кіт-мандрівник", [
-        ("on a scooter in a city, wind in the whiskers, joyful carefree smile", "Іду по справах. Із вітерцем."),
-        ("with a backpack and a map at a mountain viewpoint, amazed happy face", "Дорога сама себе не пройде. Пішли."),
-        ("carrying a pile of shopping bags, tired but happy, evening city lights behind", "Купив лише найнеобхідніше. (Не лише.)"),
-        ("holding a tiny umbrella in light rain, looking at the sky with a mildly offended face", "Знову дощ? Я ж планував гуляти."),
+        ("riding an electric scooter through a sunlit city street in a hoodie, wind in the whiskers, cocky smile, motion blur", "Іду по справах. Із вітерцем."),
+        ("standing on a mountain viewpoint with a backpack and a phone, impressed raised eyebrow smirk, golden hour", "Дорога сама себе не пройде. Пішли."),
+        ("carrying many shopping bags down a lit evening street, tired but smug, city lights bokeh", "Купив лише найнеобхідніше. (Не лише.)"),
+        ("standing under a transparent umbrella in the rain, looking up with a mildly offended deadpan face, neon reflections", "Знову дощ? Я ж планував гуляти."),
     ]),
     6: ("Кіт-ледар", [
-        ("stretching after waking up in a sunny bedroom, yawning widely, cheerful lazy mood", "Доброго ранку. Будь ласка, без швидких рішень."),
-        ("hugging a big pillow, deeply sleepy, dark circles under the eyes, late night bedroom", "Ще одну серію — і спати. Так я собі казав годину тому."),
-        ("wearing a cozy knitted sweater and scarf by a snowy window, holding hot chocolate", "Зима за вікном, тепло всередині."),
-        ("standing on a bathroom scale looking shocked, comedic exaggerated expression", "Це точно не мої цифри. Це зважування помилилось."),
+        ("waking up in a messy bed stretching and yawning, one eye half open, sunbeam through blinds, cozy morning", "Доброго ранку. Будь ласка, без швидких рішень."),
+        ("hugging a big pillow in bed at night, dark circles under half-closed eyes, phone glow, sleepy smirk", "Ще одну серію — і спати. Так я собі казав годину тому."),
+        ("wrapped in a thick knitted sweater holding hot chocolate by a snowy window, smug cozy half-smile", "Зима за вікном, тепло всередині."),
+        ("standing on a bathroom scale looking down in exaggerated shock, one eyebrow raised, bright bathroom", "Це точно не мої цифри. Це зважування помилилось."),
     ]),
 }
 
@@ -72,7 +79,7 @@ def theme_for(d: date) -> tuple[str, str, str]:
 
 
 def _gen_models(key: str, call=llm._call) -> list[str]:
-    """Імена моделей, що вміють малювати (за назвою «image»), нові першими."""
+    """Імена моделей, що вміють малювати (за назвою «image»): повна якість першою, потім preview, lite — останньою."""
     names = []
     try:
         out = call(f"{llm.API}/models?pageSize=200", key, None, 30)
@@ -82,7 +89,7 @@ def _gen_models(key: str, call=llm._call) -> list[str]:
                 names.append(n)
     except Exception:  # noqa: BLE001
         pass
-    names.sort(key=lambda n: ("lite" in n, "preview" in n, n))  # повна якість першою: звичайна, потім preview, lite — останньою
+    names.sort(key=lambda n: ("lite" in n, "preview" in n, n))
     return names or ["gemini-2.5-flash-image"]
 
 
@@ -100,7 +107,7 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     for model in models[:3]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        parts = [{"text": f"Create a new square 1:1 image of the SAME recurring character as in the attached reference images, in exactly the same style. Character: {CHARACTER}. New scene: {prompt_en}. Warm friendly colors. No text, no letters, no watermark, no logos."}]
+        parts = [{"text": f"{STYLE} Draw the SAME recurring character as in the attached reference image - copy its face, eyebrows, eyes, cheeks, fur color and 3D style exactly. Character: {CHARACTER}. Scene: {prompt_en}."}]
         for ref in _refs():
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
         payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
@@ -165,9 +172,45 @@ def stock_photo(get=_get) -> bytes | None:
     return None
 
 
+def brand_mark(path) -> None:
+    """Накласти знак «відбиток лапки + КІТ-РАДАР» у правий нижній кут (малюємо самі: текст від моделі ненадійний). Без Pillow — пропускаємо."""
+    try:
+        from PIL import Image, ImageDraw
+        from .card import _font
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        im = Image.open(path).convert("RGB")
+    except Exception:  # noqa: BLE001
+        return
+    W, H = im.size
+    ov = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    h = max(44, int(H * 0.058))
+    f = _font(int(h * 0.50))
+    text = "КІТ-РАДАР"
+    tw = d.textlength(text, font=f)
+    pad = int(h * 0.30)
+    w = int(h + tw + pad * 2)
+    x1, y1 = W - int(W * 0.03), H - int(H * 0.03)
+    x0, y0 = x1 - w, y1 - h
+    d.rounded_rectangle((x0, y0, x1, y1), radius=h // 2, fill=(14, 14, 18, 190))
+    # відбиток лапки: подушечка + 4 пальці
+    cx, cy, r = x0 + pad + h * 0.30, y0 + h * 0.58, h * 0.20
+    orange = (255, 150, 40, 255)
+    d.ellipse((cx - r * 1.3, cy - r * 0.9, cx + r * 1.3, cy + r * 1.25), fill=orange)
+    for dx, dy, k in ((-1.5, -1.25, 0.46), (-0.5, -1.85, 0.5), (0.5, -1.85, 0.5), (1.5, -1.25, 0.46)):
+        d.ellipse((cx + dx * r - r * k, cy + dy * r - r * k, cx + dx * r + r * k, cy + dy * r + r * k), fill=orange)
+    d.text((x0 + h * 0.62 + pad, y0 + (h - h * 0.50) / 2 - h * 0.04), text, font=f, fill=(255, 255, 255, 245))
+    Image.alpha_composite(im.convert("RGBA"), ov).convert("RGB").save(path, "JPEG", quality=92)
+
+
 def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get, allow_photo: bool = False, allow_free: bool = False):
     """→ (шлях, підпис, походження) або None."""
     role, prompt, line = theme_for(today)
+    custom = os.environ.get("CAT_SCENE", "").strip()
+    if custom:  # ручна проба зі сценою від користувача (будь-якою мовою)
+        role, prompt, line = "Кіт-Радар", custom, "Кіт-Радар на зв'язку."
     img, origin = None, ""
     last_error.clear()
     if key:
@@ -187,5 +230,6 @@ def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get
         return None
     path = pathlib.Path(out_dir) / f"cat-{today.isoformat()}.jpg"
     path.write_bytes(img)
+    brand_mark(path)
     caption = f"<b>Кіт-Радар 🐱</b> · {role}\n{line}"
     return path, caption, origin
