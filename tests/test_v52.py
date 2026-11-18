@@ -126,6 +126,8 @@ class CatTests(unittest.TestCase):
             self.assertIn("ШІ-картинка", r[2]); self.assertIn("Котик дня", r[1])
             def get(u, t=25):
                 return json.dumps([{"url": "http://img"}]).encode() if "thecatapi" in u and "img" not in u else b"y" * 6000
-            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=get)
+            r = cat.build(date(2026, 11, 18), "k", d, call=bad, get=get, allow_photo=True)
             self.assertIn("недоступна", r[2])
+            with self.assertRaises(RuntimeError):
+                cat.build(date(2026, 11, 18), "k", d, call=bad, get=get)
             self.assertIsNone(cat.build(date(2026, 11, 18), None, d, call=bad, get=lambda u, t=25: (_ for _ in ()).throw(OSError())))

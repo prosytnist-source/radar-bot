@@ -275,7 +275,7 @@ def main(argv=None) -> int:
         elif a.kind in RUBRIC_NAMES:
             r = rubric_post(a.kind, today, st)
             if r is None:
-                raise RuntimeError("не знайшлося підходящого запису на сьогодні")
+                raise RuntimeError("на сьогодні нічого не вдалося підготувати (для котика — Gemini не віддав малюнок)")
             res, extra = r[:2], r[2:]
         else:
             res = silence_post(today)

@@ -1,6 +1,6 @@
 """Щовечірня рубрика «Котик дня» (22:00): нове миле й кумедне зображення кота.
-Спершу — генерація зображення моделлю Gemini (назву моделі шукаємо серед доступних); якщо недоступно — запасне фото
-з відкритих сервісів (The Cat API, CATAAS). Підпис — коротка тепла фраза з готового списку (нічого не вигадується моделлю)."""
+Генерація мультяшного зображення моделлю Gemini (назву моделі шукаємо серед доступних). Запасне фото справжнього кота
+(The Cat API, CATAAS) — лише якщо allow_photo=True; за замовчуванням вимкнено, бо потрібен мультяшний стиль. Підпис — коротка тепла фраза з готового списку (нічого не вигадується моделлю)."""
 from __future__ import annotations
 
 import base64
@@ -14,6 +14,7 @@ from . import llm
 
 UA = {"User-Agent": "RadarBot/1.0 (https://github.com/prosytnist-source/radar-bot)"}
 BUDGET = 150
+last_error: list[str] = []
 
 # (що намалювати англійською, підпис українською)
 THEMES = [
@@ -65,10 +66,13 @@ def _gen_models(key: str, call=llm._call) -> list[str]:
 def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     """Картинка від моделі або None."""
     t0 = time.monotonic()
-    for model in _gen_models(key, call)[:2]:
+    last_error.clear()
+    models = _gen_models(key, call)
+    last_error.append(f"моделі для малювання: {models[:3]}")
+    for model in models[:2]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        payload = {"contents": [{"role": "user", "parts": [{"text": f"Create a cute, funny, high-quality picture: {prompt_en}. No text, no letters, no watermark."}]}],
+        payload = {"contents": [{"role": "user", "parts": [{"text": f"Create a funny, adorable cartoon illustration of a cat character: {prompt_en}. Style: colorful 2D cartoon, bold clean outlines, big expressive eyes, exaggerated funny pose, warm friendly colors, children's-book / sticker look. Not a photo, not realistic. No text, no letters, no watermark."}]}],
                    "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
         try:
             out = call(f"{llm.API}/models/{model}:generateContent", key, payload, 60)
@@ -78,7 +82,14 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
                     raw = base64.b64decode(inline["data"])
                     if len(raw) > 5000:
                         return raw
-        except Exception:  # noqa: BLE001
+            last_error.append(f"{model}: відповідь без зображення")
+        except Exception as exc:  # noqa: BLE001
+            body = ""
+            try:
+                body = exc.read().decode("utf-8", "replace")[:200]  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001
+                pass
+            last_error.append(f"{model}: {str(exc)[:80]} {body}".strip())
             continue
     return None
 
@@ -106,17 +117,19 @@ def stock_photo(get=_get) -> bytes | None:
     return None
 
 
-def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get):
-    """→ (путь, підпис, походження) або None."""
+def build(today: date, key: str | None, out_dir="/tmp", call=llm._call, get=_get, allow_photo: bool = False):
+    """→ (шлях, підпис, походження) або None."""
     prompt, line = theme_for(today)
     img, origin = None, ""
     if key:
         img = generate(prompt, key, call)
         origin = "ШІ-картинка"
-    if img is None:
+    if img is None and allow_photo:
         img = stock_photo(get)
         origin = "фото з відкритого сервісу (ШІ-картинка недоступна)"
     if img is None:
+        if key and last_error:
+            raise RuntimeError("Gemini не намалював котика. " + " | ".join(last_error)[:420])
         return None
     path = pathlib.Path(out_dir) / f"cat-{today.isoformat()}.jpg"
     path.write_bytes(img)
