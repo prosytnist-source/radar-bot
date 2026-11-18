@@ -79,24 +79,10 @@ class Cheap(unittest.TestCase):
 
 
 class Silence(unittest.TestCase):
-    def test_delay(self):
-        from zoneinfo import ZoneInfo
-        z = ZoneInfo("Europe/Kyiv")
-        self.assertEqual(drip.silence_delay(datetime(2026, 11, 17, 8, 59, 5, tzinfo=z)), 55.0)
-        self.assertEqual(drip.silence_delay(datetime(2026, 11, 17, 9, 0, 1, tzinfo=z)), -1.0)
-
-    def test_fixed_tick_posts_silence_on_time(self):
+    def test_no_silence_post(self):
         import time as _t
         from unittest import mock
-        from zoneinfo import ZoneInfo
         calls = []
-        z = ZoneInfo("Europe/Kyiv")
-        fake = datetime(2026, 11, 17, 8, 59, 30, tzinfo=z)
-        with mock.patch("digest.fixed.main", side_effect=lambda argv: calls.append(argv[1])), \
-             mock.patch.object(drip, "push_state", return_value=True), \
-             mock.patch.object(drip, "datetime") as dt, mock.patch.object(drip.time, "sleep") as sl:
-            dt.now.return_value = fake
+        with mock.patch("digest.fixed.main", side_effect=lambda argv: calls.append(argv[1])):
             drip.fixed_tick(Namespace(), 60, _t.time() + 3000, {})
-        self.assertEqual(calls[0], "silence")
-        sl.assert_called_once_with(30.0)
-        self.assertEqual(calls[1:], ["holiday", "rates", "fuel"])
+        self.assertEqual(calls, ["holiday", "rates", "fuel"])

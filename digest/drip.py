@@ -137,16 +137,8 @@ def silence_delay(now_kyiv: datetime) -> float:
 
 
 def fixed_tick(a, poll: float, end: float, last_try: dict) -> None:
-    """Щоденні пости зсередини безперервного запуску (cron GitHub ненадійний, а цей запуск працює майже без перерв).
-    «Хвилина мовчання»: чекаємо до 09:00:00 і публікуємо; запізнення понад хвилину — пропуск (fixed.LATE)."""
+    """Щоденні пости (свято, курс, пальне) зсередини безперервного запуску. «Хвилину мовчання» прибрано за рішенням власника."""
     from . import fixed
-    tz = ZoneInfo("Europe/Kyiv")
-    d = silence_delay(datetime.now(tz))
-    if -50 <= d <= poll + 30 and time.time() + max(d, 0) < end:
-        if d > 0:
-            time.sleep(d)
-        fixed.main(["--kind", "silence"])
-        push_state()
     now = time.time()
     for kind in ("holiday", "rates", "fuel"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
         if now - last_try.get(kind, 0) >= 600:

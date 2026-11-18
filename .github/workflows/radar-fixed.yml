@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: "holiday | rates | fuel | silence"
+        description: "holiday | rates | fuel"
         default: "rates"
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"

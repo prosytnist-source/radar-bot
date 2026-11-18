@@ -117,3 +117,5 @@ python3 -m digest.run --window day --top 8
 - `evening.json`: `mode` = `preview` (перегляд надходить лише власнику в особисті з ботом) або `live` (в канал); `at`, `until`, мінімум видань/країн.
 - Перегляд чернетки вручну: `python3 -m digest.evening --now` (потрібен ключ Gemini; нічого не публікує).
 - Повне очищення каналу: Actions → radar-wipe → Run workflow → вписати `ТАК, ВИДАЛИТИ`. Незворотно.
+
+**v5.0.3:** «Хвилину мовчання» о 09:00 прибрано (код у drip, workflow radar-silence.yml видалено).
