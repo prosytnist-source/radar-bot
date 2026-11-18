@@ -88,7 +88,7 @@ def render(title: str, out: str | pathlib.Path, subtitle: str = "", chips: list[
     for size in (64, 56, 50, 44, 38, 34):
         f = _font(size)
         lines = wrap(d, title, f, x1 - x0, 6)
-        if not lines[-1].endswith("…") and len(lines) * size * 1.22 <= 330:
+        if not lines[-1].endswith("…") and len(lines) * size * 1.22 <= 330 and all(d.textlength(l, font=f) <= x1 - x0 for l in lines):
             break
     y = 215
     for ln in lines:
