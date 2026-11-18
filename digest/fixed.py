@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 import html
 import json
 import pathlib
@@ -254,6 +255,17 @@ def due(kind: str, now: datetime) -> tuple[bool, str]:
     return True, ""
 
 
+WAIT_MAX = 12  # хвилин: стільки максимум чекаємо до цільового часу (запуски GitHub за розкладом приходять із запізненням, тому cron стоїть раніше)
+
+
+def early_wait(kind: str, now: datetime) -> float:
+    """Секунд до цільового часу, якщо запуск прийшов трохи раніше (не більше WAIT_MAX хв); інакше 0."""
+    z = now.astimezone(ZoneInfo(TZ))
+    h, m = TARGET[kind]
+    secs = (z.replace(hour=h, minute=m, second=0, microsecond=0) - z).total_seconds()
+    return secs if 0 < secs <= WAIT_MAX * 60 else 0.0
+
+
 def banners_main(a) -> int:
     """Разова генерація постійних банерів з котом: зберігаються в state/banners і надсилаються власнику на перегляд."""
     import os
@@ -280,6 +292,7 @@ def main(argv=None) -> int:
     ap.add_argument("--kind", required=True, choices=list(TARGET) + ["banners"])
     ap.add_argument("--now")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--wait", action="store_true", help="якщо запуск прийшов трохи раніше за цільовий час — почекати до нього (для planових запусків)")
     ap.add_argument("--force", action="store_true", help="ігнорувати паузу, «вже публікували» і запізнення (для ручної перевірки)")
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
@@ -299,6 +312,12 @@ def main(argv=None) -> int:
         if marks.get(a.kind) == today.isoformat():
             print("Сьогодні вже опубліковано.")
             return 0
+        if a.wait and not a.dry and a.kind in TARGET:
+            w = early_wait(a.kind, now)
+            if w:
+                print(f"Чекаю {int(w)} с до цільового часу.")
+                time.sleep(w)
+                now = datetime.now(timezone.utc)
         ok, why = due(a.kind, now)
         if not ok:
             print(why)

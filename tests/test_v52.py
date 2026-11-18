@@ -251,3 +251,22 @@ class CatTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EarlyWaitTests(unittest.TestCase):
+    def test_wait_until_target(self):
+        from datetime import datetime, timezone
+        from digest import fixed
+        # 21:50 за Києвом (19:50 UTC, зима) → до 22:00 кота 600 с
+        self.assertEqual(fixed.early_wait("cat", datetime(2026, 11, 18, 19, 50, tzinfo=timezone.utc)), 600)
+        # занадто рано (понад WAIT_MAX) → не чекаємо
+        self.assertEqual(fixed.early_wait("cat", datetime(2026, 11, 18, 19, 30, tzinfo=timezone.utc)), 0)
+        # уже після цільового часу → не чекаємо
+        self.assertEqual(fixed.early_wait("cat", datetime(2026, 11, 18, 20, 5, tzinfo=timezone.utc)), 0)
+
+    def test_workflow_maps_early_and_backup_crons(self):
+        import pathlib
+        t = pathlib.Path(".github/workflows/radar-fixed.yml").read_text(encoding="utf-8")
+        for k in ("holiday", "rates", "fuel", "figure", "culture", "ask", "fact", "expert", "cat"):
+            self.assertIn(f"K={k} ;;", t)
+        self.assertIn('"10 19 * * *"|"0 20 * * *") K=cat', t)
