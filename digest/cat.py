@@ -29,6 +29,12 @@ STYLE = ("Ultra-detailed 3D animated film still, premium Pixar-quality rendering
          "Hyper-detailed individual fur strands and long visible whiskers. Square 1:1. "
          "Recurring brand details: a cream mug or object with a small black paw-print logo; in indoor scenes a dark navy wall with a gold-framed picture of a peace-sign hand, a shelf with books, a plant and a warm lamp. "
          "NOT a children's storybook, NOT a plush toy look, NOT a full-body centered frontal pose, NOT fat, no wide-open mouth. No text, no letters, no watermark.")
+FRAMING = ("MANDATORY FRAMING (highest priority, overrides the scene wording): the camera is very close with a wide-angle lens and a low angle; "
+           "the cat fills at least 70 percent of the frame and is the clear hero, background is only a backdrop; NEVER a distant or aerial shot, NEVER a tiny cat. "
+           "Dynamic full-body action pose with bent knees and elbows, never stiff or hanging like a doll; wind or motion in the fur and whiskers, fluffy tail visible; "
+           "a vivid alive facial emotion (blissful closed-eye grin or a smug sideways glance). "
+           "Realistic real-world objects and gear (a real paraglider canopy with proper lines, real skateboard, real food) - never toy-like. "
+           "Rich tactile detail: individual fur strands, fabric texture of the hoodie and jeans. Sharp detailed background with natural saturated colors and strong contrast, no milky haze or fog.")
 ROLES = {
     0: ("Кіт на роботі", [
         ("slouched at a desk in front of a laptop late in the evening, a steaming mug nearby, tired but proud smirk, city lights in the window behind", "Робочий день завершено. Я молодець."),
@@ -111,12 +117,22 @@ def generate(prompt_en: str, key: str, call=llm._call) -> bytes | None:
     for model in models[:3]:
         if time.monotonic() - t0 > BUDGET - 50:
             break
-        parts = [{"text": f"{STYLE} Draw the SAME recurring character as in the attached reference images (they show one cat in different moods): copy its face EXACTLY - eyebrows, eyes, nose, cheeks, whiskers, ears, fur color, 3D rendering style, lighting quality. Character: {CHARACTER}. New scene: {prompt_en}."}]
+        parts = [{"text": f"{STYLE} Draw the SAME recurring character as in the attached reference images (they show one cat in different moods): copy its face EXACTLY - eyebrows, eyes, nose, cheeks, whiskers, ears, fur color, 3D rendering style, lighting quality. Character: {CHARACTER}. New scene: {prompt_en}. {FRAMING}"}]
         for ref in _refs():
             parts.append({"inline_data": {"mime_type": "image/jpeg", "data": ref}})
-        payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
         try:
-            out = call(f"{llm.API}/models/{model}:generateContent", key, payload, 60)
+            out = None
+            for cfg in ({"responseModalities": ["IMAGE", "TEXT"], "imageConfig": {"aspectRatio": "1:1", "imageSize": "2K"}},
+                        {"responseModalities": ["IMAGE", "TEXT"]}):  # 2K підтримують не всі моделі — тоді звичайний розмір
+                payload = {"contents": [{"role": "user", "parts": parts}], "generationConfig": cfg}
+                try:
+                    out = call(f"{llm.API}/models/{model}:generateContent", key, payload, 90)
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    if "400" in str(exc) and "imageConfig" in cfg:
+                        last_error.append(f"{model}: 2K не підтримано")
+                        continue
+                    raise
             for part in out["candidates"][0]["content"]["parts"]:
                 inline = part.get("inlineData") or part.get("inline_data")
                 if inline and inline.get("data"):
