@@ -22,8 +22,8 @@ from .state import State
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CARDS = ROOT / "assets" / "cards"
 TZ = "Europe/Kyiv"
-TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "fact": (17, 0), "cat": (22, 0)}
-LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "fact": 300, "cat": 180}  # хвилини: пізніше — пропускаємо
+TARGET = {"holiday": (6, 0), "rates": (6, 30), "fuel": (7, 0), "silence": (9, 0), "figure": (12, 0), "culture": (14, 0), "fact": (17, 0), "cat": (22, 0)}
+LATE = {"holiday": 180, "rates": 180, "fuel": 180, "silence": 1, "figure": 300, "culture": 300, "fact": 300, "cat": 180}  # хвилини: пізніше — пропускаємо
 MONTHS = ["січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня"]
 NBU = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json&date={d:%Y%m%d}"
 FUEL_URL = "https://index.minfin.com.ua/ua/markets/fuel/tm/"
@@ -183,7 +183,7 @@ def silence_post(d: date):
 # ---------- рубрики «Визначні постаті» і «Історичний факт» ----------
 RUBRICS = ROOT / "rubrics.json"
 BANNER_DIR = ROOT / "state" / "banners"
-RUBRIC_NAMES = {"figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Кіт-Радар"}
+RUBRIC_NAMES = {"figure": "Визначні постаті", "culture": "Культурні діячі", "fact": "Історичний факт", "cat": "Кіт-Радар"}
 
 
 def rubric_mode(kind: str) -> str:
@@ -211,7 +211,7 @@ def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = Non
     if kind == "cat":
         return cat_post(d, st)
     from . import card, chronicle, llm
-    used_file = st.dir / "chronicle.json"
+    used_file = st.dir / ("culture.json" if kind == "culture" else "chronicle.json")
     try:
         used = json.loads(used_file.read_text(encoding="utf-8")).get("used", [])
     except (OSError, json.JSONDecodeError):
@@ -221,11 +221,15 @@ def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = Non
             key = llm.load_key()
         except llm.LLMError:
             key = None  # без ключа — дослівний уривок із Вікіпедії
-    res = chronicle.build(kind, d, [u["k"] for u in used], fetch or chronicle.get_json, key, call or llm.generate_json)
+    if kind == "culture":
+        from . import culture
+        res = culture.build(d, [u["k"] for u in used], fetch or culture.get_json, key, call or llm.generate_json)
+    else:
+        res = chronicle.build(kind, d, [u["k"] for u in used], fetch or chronicle.get_json, key, call or llm.generate_json)
     if res is None:
         return None
     out = pathlib.Path("/tmp") / f"rubric-{kind}-{d.isoformat()}.jpg"
-    glyph, accent = ("person", "figure") if kind == "figure" else ("clock", "history")
+    glyph, accent = ("clock", "history") if kind == "fact" else ("person", "figure")
     ban = banner(kind, None)
     if ban is not None:
         out = ban
@@ -233,7 +237,7 @@ def rubric_post(kind: str, d: date, st: State, fetch=None, key: str | None = Non
         card.render(res["title"], out, subtitle=res["subtitle"], chips=res["chips"], kind=accent, glyph=glyph)
     else:
         out = CARDS / "holiday-1.jpg"
-    used = [u for u in used if u["d"] >= (d - timedelta(days=400)).isoformat()] + [{"k": res["key"], "d": d.isoformat()}]
+    used = [u for u in used if kind == "culture" or u["d"] >= (d - timedelta(days=400)).isoformat()] + [{"k": res["key"], "d": d.isoformat()}]
     return out, res["caption"], used_file, used
 
 
@@ -352,7 +356,7 @@ def main(argv=None) -> int:
     mark_file.write_text(json.dumps(marks), encoding="utf-8")
     if extra:
         (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
-    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "fact": "Історичний факт", "cat": "Кіт-Радар"}[a.kind], now)
+    st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "culture": "Культурні діячі", "fact": "Історичний факт", "cat": "Кіт-Радар"}[a.kind], now)
     print("Опубліковано:", a.kind)
     return 0
 

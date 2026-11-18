@@ -112,6 +112,28 @@ class CatEveningTests(unittest.TestCase):
             self.assertFalse(any(w in ln for w in bad), ln)
 
 
+class CultureTests(unittest.TestCase):
+    def test_build_no_repeat_and_quote(self):
+        from digest import culture
+        from datetime import date
+        pages = ["Іван Котляревський", "Леся Українка", "Список поетів"]
+        ext = "Леся Українка (1871–1913) — українська письменниця, поетеса, драматургині та перекладачка. " * 3
+        def fetch(url, timeout=20):
+            if "categorymembers" in url:
+                return {"query": {"categorymembers": [{"title": t} for t in pages]}}
+            if "wikiquote" in url:
+                return {"parse": {"wikitext": "* Contra spem spero — без надії сподіваюсь і тримаюсь до кінця, і це моє.\n* ще [[x]]"}}
+            t = url.rsplit("/", 1)[-1]
+            return {"title": "Леся Українка" if "%D0%9B%D0%B5" in t else "Іван Котляревський", "extract": ext, "description": "українська письменниця"}
+        r = culture.build(date(2026, 11, 19), [], fetch, None)
+        self.assertIn("Культурні діячі", r["chips"]); self.assertTrue(r["caption"].startswith("<b>"))
+        self.assertNotIn("Список", r["key"])
+        r2 = culture.build(date(2026, 11, 19), [r["key"]], fetch, None)
+        self.assertNotEqual(r["key"], r2["key"])
+        with self.assertRaises(RuntimeError):
+            culture.build(date(2026, 11, 19), [r["key"], r2["key"]], fetch, None)
+
+
 class BannerTests(unittest.TestCase):
     def test_banner_helper_and_build(self):
         import base64, io, json, os, tempfile

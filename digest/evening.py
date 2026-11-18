@@ -117,7 +117,7 @@ def pick_topic(st: State, now: datetime, items: list[Item], by_id: dict, ecfg: d
 
 
 # ---------- запит до моделі ----------
-VOICE = ("VOICE: lively, warm, ironic colloquial Ukrainian, like a sharp friend telling the news over tea: short sentences, direct address ('слухай', 'запам'ятай'), "
+VOICE = ("VOICE: lively, warm, ironic colloquial Ukrainian in the spirit of the spoken manner of Kuzma Skryabin - playful, folksy, self-ironic, with vivid homely images and unexpected comparisons, like a witty friend telling the news over tea (a manner of speaking only: never quote or imitate his songs or lyrics, never put words in his mouth): short sentences, direct address ('слухай', 'запам'ятай'), "
          "dry humour and folk turns of phrase. The headings are the place for wit: each heading is a short folksy line with a twist (for example in the spirit of 'Хто що бачить, поки чайник википає', "
          "'Де сходяться, а де розходяться', 'А тепер без прикрас'), never generic labels. NEVER vulgar, no slang like 'налупили', no swearing, no mocking tone about the war. "
          "Humour lives ONLY in headings, transitions, the advice and the wish; factual statements stay precise and plain. Never joke about victims, deaths, injuries or suffering. "

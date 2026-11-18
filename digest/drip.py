@@ -140,7 +140,7 @@ def fixed_tick(a, poll: float, end: float, last_try: dict) -> None:
     """Щоденні пости (свято, курс, пальне, «Визначні постаті» 12:00, «Історичний факт» 17:00, «Кіт-Радар» 22:00) зсередини безперервного запуску. «Хвилину мовчання» прибрано за рішенням власника."""
     from . import fixed
     now = time.time()
-    for kind in ("holiday", "rates", "fuel", "figure", "fact", "cat"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
+    for kind in ("holiday", "rates", "fuel", "figure", "culture", "fact", "cat"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
         if now - last_try.get(kind, 0) >= 600:
             last_try[kind] = now
             fixed.main(["--kind", kind])

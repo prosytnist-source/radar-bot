@@ -317,6 +317,7 @@ BANNERS = {
     "rates": ("Курс валют", "wide 16:9 composition: cat at a desk counting a neat fan of banknotes and a stack of gold coins, a laptop behind with abstract green and red rising-falling charts without any numbers, smug analytical sideways glance, round reading glasses"),
     "fuel": ("Пальне", "wide 16:9 composition: cat in a hoodie holding a fuel nozzle at a modern gas station at blue dusk, a sleek car behind, a glowing blurred price sign in the distance, raised eyebrow, skeptical smug glance"),
     "figure": ("Визначні постаті", "wide 16:9 composition: cat in a dark blazer over a white shirt standing proudly beside a classic marble bust on a pedestal, holding an open old book, dignified proud smile, warm library with shelves and a brass lamp"),
+    "culture": ("Культурні діячі", "wide 16:9 composition: cat in a black turtleneck and a scarf in a warm theater foyer, holding an old poetry book and a theater program, framed portraits and golden theater lights behind, refined proud smug sideways glance"),
     "fact": ("Історичний факт", "wide 16:9 composition: cat with a magnifying glass studying an old unrolled map and parchment scrolls on a wooden table, an hourglass and a candle, curious thoughtful sideways glance, warm candlelight"),
 }
 

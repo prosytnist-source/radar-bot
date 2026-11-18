@@ -14,11 +14,15 @@ photo_ok = images.usable  # перевірка перед відправкою (
 
 def send_card_text(token: str, chat: str, spec: dict, html_text: str) -> bool:
     """Картка + текст. Короткий текст іде підписом до картки, довгий — окремим повідомленням. False, якщо картку створити не вдалося."""
+    brand = pathlib.Path(__file__).resolve().parent.parent / "assets" / "brand" / "news-cat.jpg"
     if not card.available():
         return False
+    if brand.exists():
+        out = brand  # немає фото видань — фірмова заставка з котом
     try:
-        out = pathlib.Path(tempfile.mkdtemp()) / "card.jpg"
-        card.render(spec.get("title", ""), out, spec.get("subtitle", ""), spec.get("chips"), spec.get("kind", "news"))
+        if not brand.exists():
+            out = pathlib.Path(tempfile.mkdtemp()) / "card.jpg"
+            card.render(spec.get("title", ""), out, spec.get("subtitle", ""), spec.get("chips"), spec.get("kind", "news"))
     except Exception as exc:  # noqa: BLE001
         print(f"(картку не створено: {exc})", file=sys.stderr)
         return False

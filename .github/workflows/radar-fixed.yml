@@ -8,15 +8,16 @@ on:
     - cron: "30 4 * * *"   # 06:30 — курс НБУ
     - cron: "0 5 * * *"    # 07:00 — пальне
     - cron: "0 10 * * *"   # 12:00 — Визначні постаті
+    - cron: "0 12 * * *"   # 14:00 — Культурні діячі
     - cron: "0 15 * * *"   # 17:00 — Історичний факт
     - cron: "0 20 * * *"   # 22:00 — Котик дня
   workflow_dispatch:
     inputs:
       kind:
-        description: "holiday | rates | fuel | figure | fact | cat | banners"
+        description: "holiday | rates | fuel | figure | culture | fact | cat | banners"
         default: "rates"
       scene:
-        description: "для kind=cat: власна сцена для проби; для kind=banners: ключ одного банера (holiday, rates, fuel, figure, fact) щоб перегенерувати лише його, напр. «кіт дивиться на дощ з кавою» (можна залишити порожнім)"
+        description: "для kind=cat: власна сцена для проби; для kind=banners: ключ одного банера (holiday, rates, fuel, figure, culture, fact) щоб перегенерувати лише його, напр. «кіт дивиться на дощ з кавою» (можна залишити порожнім)"
         default: ""
       force:
         description: "true = надіслати негайно, ігноруючи час і паузу (для перевірки)"
@@ -45,6 +46,7 @@ jobs:
             "30 4 * * *") K=rates ;;
             "0 5 * * *") K=fuel ;;
             "0 10 * * *") K=figure ;;
+            "0 12 * * *") K=culture ;;
             "0 15 * * *") K=fact ;;
             "0 20 * * *") K=cat ;;
             *) K="${{ github.event.inputs.kind }}" ;;
