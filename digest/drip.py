@@ -143,7 +143,7 @@ def fixed_tick(a, poll: float, end: float, last_try: dict) -> None:
     for kind in ("holiday", "rates", "fuel", "figure", "culture", "ask", "fact", "expert", "cat"):  # запас до radar-fixed: не частіше раз на 10 хв, щоб не засипати повідомленнями про збій
         if now - last_try.get(kind, 0) >= 600:
             last_try[kind] = now
-            fixed.main(["--kind", kind])
+            fixed.main(["--kind", kind, "--backup"])
 
 
 def loop(a, poll: float = 60.0) -> int:

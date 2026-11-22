@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
 import time
 import html
 import json
@@ -255,6 +257,51 @@ def due(kind: str, now: datetime) -> tuple[bool, str]:
     return True, ""
 
 
+BACKUP_AFTER = 3  # хвилин: безперервний запуск (drip) у режимі --backup втручається лише так довго після цільового часу, щоб не гонитися за плановим запуском
+
+
+def late_minutes(kind: str, now: datetime) -> float:
+    """На скільки хвилин «зараз» пізніше за цільовий час посту (від'ємне — ще рано)."""
+    z = now.astimezone(ZoneInfo(TZ))
+    h, m = TARGET[kind]
+    return (z - z.replace(hour=h, minute=m, second=0, microsecond=0)).total_seconds() / 60
+
+
+def fresh_marks(marks: dict) -> dict:
+    """Свіжі позначки «вже опубліковано» з репозиторію: інший запуск міг опублікувати пост, поки цей чекав.
+    Лише в GitHub Actions; збій мережі чи git не заважає — лишаються локальні позначки."""
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return marks
+    try:
+        subprocess.run(["git", "fetch", "-q", "origin", "main"], cwd=ROOT, timeout=40, check=True, capture_output=True)
+        out = subprocess.run(["git", "show", "origin/main:state/fixed.json"], cwd=ROOT, timeout=20, check=True, capture_output=True, text=True).stdout
+        remote = json.loads(out)
+    except Exception:  # noqa: BLE001
+        return marks
+    merged = dict(marks)
+    for k, v in remote.items():
+        if str(v) > str(merged.get(k, "")):
+            merged[k] = v
+    return merged
+
+
+def push_marks() -> None:
+    """Одразу після публікації зберегти позначку в репозиторії, щоб інший запуск її побачив (лише в Actions)."""
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    for i in range(3):
+        try:
+            subprocess.run(["git", "add", "state/fixed.json"], cwd=ROOT, check=True, capture_output=True, timeout=20)
+            if subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=ROOT, timeout=20).returncode == 0:
+                return
+            subprocess.run(["git", "-c", "user.name=radar-bot", "-c", "user.email=radar-bot@users.noreply.github.com", "commit", "-qm", "state: fixed mark"], cwd=ROOT, check=True, capture_output=True, timeout=20)
+            subprocess.run(["git", "pull", "--rebase", "-q", "-X", "theirs", "origin", "main"], cwd=ROOT, check=True, capture_output=True, timeout=60)
+            subprocess.run(["git", "push", "-q", "origin", "HEAD:main"], cwd=ROOT, check=True, capture_output=True, timeout=60)
+            return
+        except Exception:  # noqa: BLE001
+            time.sleep(3 * (i + 1))
+
+
 WAIT_MAX = 12  # хвилин: стільки максимум чекаємо до цільового часу (запуски GitHub за розкладом приходять із запізненням, тому cron стоїть раніше)
 
 
@@ -293,6 +340,7 @@ def main(argv=None) -> int:
     ap.add_argument("--now")
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--wait", action="store_true", help="якщо запуск прийшов трохи раніше за цільовий час — почекати до нього (для planових запусків)")
+    ap.add_argument("--backup", action="store_true", help="резервний режим (з безперервного запуску): діє лише через BACKUP_AFTER хв після цільового часу, коли плановий запуск уже мав відпрацювати")
     ap.add_argument("--force", action="store_true", help="ігнорувати паузу, «вже публікували» і запізнення (для ручної перевірки)")
     a = ap.parse_args(argv)
     now = datetime.fromisoformat(a.now).replace(tzinfo=timezone.utc) if a.now else datetime.now(timezone.utc)
@@ -318,9 +366,16 @@ def main(argv=None) -> int:
                 print(f"Чекаю {int(w)} с до цільового часу.")
                 time.sleep(w)
                 now = datetime.now(timezone.utc)
+        if a.backup and a.kind in TARGET and late_minutes(a.kind, now) < BACKUP_AFTER:
+            print("Резервний запуск: плановий ще має встигнути.")
+            return 0
         ok, why = due(a.kind, now)
         if not ok:
             print(why)
+            return 0
+        marks = fresh_marks(marks)  # поки чекали, пост міг вийти з іншого запуску
+        if marks.get(a.kind) == today.isoformat():
+            print("Сьогодні вже опубліковано (іншим запуском).")
             return 0
     extra = None
     if a.kind in ("ask", "expert"):
@@ -345,6 +400,7 @@ def main(argv=None) -> int:
         if not a.dry:
             marks[a.kind] = today.isoformat()
             mark_file.write_text(json.dumps(marks), encoding="utf-8")
+            push_marks()
             st.log_event("sent", {"ask": "Питання дня", "expert": "Експертна думка кота"}[a.kind], now)
         return 0
     try:
@@ -397,6 +453,7 @@ def main(argv=None) -> int:
         publish.send_photo(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_CHAT_ID"), card, caption)
     marks[a.kind] = today.isoformat()
     mark_file.write_text(json.dumps(marks), encoding="utf-8")
+    push_marks()
     if extra:
         (st.dir / "fuel.json").write_text(json.dumps(extra, ensure_ascii=False), encoding="utf-8")
     st.log_event("sent", {"holiday": "Свято сьогодні", "rates": "Курс валют НБУ", "fuel": "Вартість пального", "silence": "Хвилина мовчання", "figure": "Визначні постаті", "culture": "Культурні діячі", "fact": "Історичний факт", "cat": "Кіт-Радар"}[a.kind], now)

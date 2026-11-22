@@ -24,7 +24,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 TZ = "Europe/Kyiv"
 LIMIT = 3900  # Telegram: до 4096 символів тексту повідомлення
 KEEP_HOURS = 40
-MAX_TRIES = 4
+MAX_TRIES = 8
 
 
 def load_cfg() -> dict:
@@ -388,6 +388,13 @@ def tick(st: State, now: datetime, ecfg: dict | None = None) -> str:
         if m.get("done"):
             return "сьогодні вже було"
         if m.get("tries", 0) >= MAX_TRIES:
+            if not m.get("alerted"):  # один раз на добу повідомляємо власнику, чому огляду не буде
+                m["alerted"] = True
+                marker.write_text(json.dumps(m), encoding="utf-8")
+                try:
+                    publish.send(publish.env("TELEGRAM_BOT_TOKEN"), publish.env("TELEGRAM_OWNER_ID"), htmllib.escape(f"⚠️ РАДАР: вечірнього огляду сьогодні не буде. Причина: {m.get('err', 'не збережена')}", quote=False))
+                except BaseException:  # noqa: BLE001
+                    pass
             return "сьогодні спроби вичерпано"
         if m.get("last") and now - datetime.fromisoformat(m["last"]) < timedelta(minutes=ecfg["retry_minutes"]):
             return "чекаю наступної спроби"
@@ -402,10 +409,14 @@ def tick(st: State, now: datetime, ecfg: dict | None = None) -> str:
     try:
         msg = run(st, now, items, by_id, ecfg, llm.load_key())
     except (BadReview, llm.LLMError) as exc:
+        m["err"] = str(exc)[:160]
+        marker.write_text(json.dumps(m), encoding="utf-8")
         return f"спроба {m['tries']} не вдалась: {str(exc)[:160]}"
     if msg.startswith(("перегляд", "опубліковано")):
         m["done"] = True
-        marker.write_text(json.dumps(m), encoding="utf-8")
+    else:
+        m["err"] = msg[:160]
+    marker.write_text(json.dumps(m), encoding="utf-8")
     return msg
 
 

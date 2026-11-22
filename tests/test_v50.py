@@ -146,15 +146,18 @@ class Tick(unittest.TestCase):
             self.assertEqual(len(calls), 1)
 
     def test_failed_attempt_retries_later_up_to_limit(self):
+        calls_alert = []
         with tempfile.TemporaryDirectory() as d:
             st = State(pathlib.Path(d))
             cfg = evening.load_cfg()
             with mock.patch.object(evening, "_fetch_focus", lambda: ([], {}, {})), mock.patch.object(evening, "run", lambda *a, **k: "немає теми"), mock.patch.object(evening.llm, "load_key", lambda: "k"):
                 evening.tick(st, NOW, cfg)
                 self.assertEqual(evening.tick(st, NOW + timedelta(minutes=5), cfg), "чекаю наступної спроби")
-                for m in (20, 40, 60):
+                for m in range(20, 20 * evening.MAX_TRIES, 20):
                     evening.tick(st, NOW + timedelta(minutes=m), cfg)
-                self.assertEqual(evening.tick(st, NOW + timedelta(minutes=80), cfg), "сьогодні спроби вичерпано")
+                with mock.patch.object(evening.publish, "send", lambda *a, **k: calls_alert.append(a)), mock.patch.object(evening.publish, "env", lambda n: "x"):
+                    self.assertEqual(evening.tick(st, NOW + timedelta(minutes=20 * evening.MAX_TRIES), cfg), "сьогодні спроби вичерпано")
+                self.assertEqual(len(calls_alert), 1)  # власнику — одне повідомлення про причину
 
 
 class Wipe(unittest.TestCase):
@@ -222,3 +225,17 @@ class V51(unittest.TestCase):
         text = evening.fit(d, texts, NOW, limit=len(full) - 40)
         self.assertTrue(text is not None and len(text) <= len(full) - 40)
         self.assertIn("Проста порада", text)
+
+
+class FixedBackup(unittest.TestCase):
+    def test_backup_waits_for_scheduled_run(self):
+        from digest import fixed
+        t = datetime(2026, 11, 22, 4, 0, tzinfo=timezone.utc)  # 06:00 Київ — цільовий час «свята»
+        self.assertLess(fixed.late_minutes("holiday", t), fixed.BACKUP_AFTER)
+        self.assertGreaterEqual(fixed.late_minutes("holiday", t + timedelta(minutes=5)), fixed.BACKUP_AFTER)
+
+    def test_fresh_marks_merges_newer(self):
+        from digest import fixed
+        with mock.patch.dict("os.environ", {"GITHUB_ACTIONS": "true"}), mock.patch.object(fixed.subprocess, "run") as run:
+            run.side_effect = [mock.Mock(), mock.Mock(stdout='{"rates": "2026-11-22", "fuel": "2026-11-21"}')]
+            self.assertEqual(fixed.fresh_marks({"rates": "2026-11-21", "fuel": "2026-11-21"}), {"rates": "2026-11-22", "fuel": "2026-11-21"})
