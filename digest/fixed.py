@@ -348,6 +348,9 @@ def main(argv=None) -> int:
     st = State(ROOT / "state")
     if a.kind == "banners":
         return banners_main(a)
+    if rubric_mode(a.kind) == "off" and not a.force:
+        print(f"⏹ Рубрику «{a.kind}» вимкнено в rubrics.json (\"off\"): нічого не генерую й не публікую.")
+        return 0
     mark_file = st.dir / "fixed.json"
     try:
         marks = json.loads(mark_file.read_text(encoding="utf-8"))
