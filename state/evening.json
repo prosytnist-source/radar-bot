@@ -1,1 +1,1 @@
-{"day": "2026-11-24", "tries": 8, "last": "2026-11-24T20:00:56.448352+00:00", "err": "HTTP 402: {\n  \"error\": {\n    \"code\": 402,\n    \"message\": \"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage y"}
+{"day": "2026-11-24", "tries": 8, "last": "2026-11-24T20:00:56.448352+00:00", "err": "HTTP 402: {\n  \"error\": {\n    \"code\": 402,\n    \"message\": \"Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage y", "alerted": true}
